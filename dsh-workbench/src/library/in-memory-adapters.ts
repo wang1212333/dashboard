@@ -27,6 +27,7 @@ export class InMemoryMetadataRepository implements MetadataRepository {
   private readonly audits: AuditEvent[] = []
 
   async getAsset(workspaceId: string, assetId: string): Promise<MetadataAsset | undefined> { return this.assets.get(assetKey(workspaceId, assetId)) }
+  async listAssets(workspaceId: string): Promise<MetadataAsset[]> { return [...this.assets.values()].filter(asset => asset.workspaceId === workspaceId).sort((left, right) => right.asset.updatedAt.localeCompare(left.asset.updatedAt)) }
   async getRevision(workspaceId: string, assetId: string, revision: string): Promise<MetadataRevision | undefined> { return this.revisions.get(revisionKey(workspaceId, assetId, revision)) }
 
   async createDraft(input: { workspaceId: string; asset: MetadataAsset['asset']; revision: MetadataRevision; audit: AuditEventInput }): Promise<void> {

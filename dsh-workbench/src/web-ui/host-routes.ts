@@ -12,9 +12,12 @@ import { AgentUploadStore } from '../data-ingestion/agent-upload-store.js'
 import { assertCsvMatchesSnapshot, assertLatestPeriodComplete, assertSkuMetricSemantics, snapshotCsvSource } from '../data-ingestion/source-integrity.js'
 import { DashboardAgentRunService, type DashboardRunEvent } from '../agent-run/dashboard-agent-run.js'
 import { NativeDashboardRunService, type NativeDashboardRunEvent } from '../agent-run/native-dashboard-run.js'
+import { HeadlessDashboardAgentService, type DashboardAgentStreamEvent, type HeadlessDatasetContext } from '../headless-dashboard-agent.js'
 import { DesignTemplateLibrary, toBrowserTemplate, withDesignTemplate } from '../design-library/design-template-library.js'
 import { TemplateCoverLibrary } from '../design-library/template-cover-library.js'
 import { renderLocalWorkbenchPage } from '../local-app/page.js'
+import { toDashboardSummary } from '../local-app/dashboard-repository.js'
+import { WorkbenchHistoryStore } from '../local-app/history-store.js'
 import { confirmDashboardPlan, planFromAnalysis } from '../dashboard-agent/workflow.js'
 import type { DashboardPlan, DashboardPlanConfirmation } from '../dashboard-agent/contracts.js'
 import type { SemanticContext } from '../data-connectors/openmetadata-mcp.js'
@@ -39,11 +42,11 @@ function source(response: ServerResponse, value: string): void { response.writeH
 function javascript(response: ServerResponse, value: string): void { response.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=3600' }); response.end(value) }
 function image(response: ServerResponse, value: Buffer): void { response.writeHead(200, { 'content-type': 'image/webp', 'cache-control': 'no-store' }); response.end(value) }
 function png(response: ServerResponse, value: Buffer): void { response.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store' }); response.end(value) }
-function sse(response: ServerResponse, event: DashboardRunEvent | NativeDashboardRunEvent): void { response.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`) }
+function sse(response: ServerResponse, event: DashboardRunEvent | NativeDashboardRunEvent | DashboardAgentStreamEvent | { type: 'session.started'; data: { sessionId: string } }): void { response.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`) }
 function required(value: unknown, name: string): string { if (typeof value !== 'string' || !value.trim()) throw new Error(`${name.toUpperCase()}_REQUIRED`); return value.trim() }
 function mapping(value: unknown): DashboardFieldMapping { return !value || typeof value !== 'object' || Array.isArray(value) ? {} : Object.fromEntries(Object.entries(value).filter(([, v]) => typeof v === 'string' && v.trim()).map(([k, v]) => [k, (v as string).trim()])) }
 function template(value: unknown): 'content-ops-v1' | 'finance-pnl-v1' | 'supply-sales-v1' | 'sku-operations-v1' { if (value === 'content-ops-v1' || value === 'finance-pnl-v1' || value === 'supply-sales-v1' || value === 'sku-operations-v1') return value; throw new Error('TEMPLATE_INVALID') }
-function status(error: unknown): number { const message = error instanceof Error ? error.message : 'UNKNOWN_ERROR'; return error instanceof OpenMetadataMcpError ? error.statusCode : /REQUIRED|INVALID|TOO_LARGE|CSV_|DATA_|ASSET_ID|MAPPING_|CONFIRMATION|DASHBOARD_PLAN/.test(message) ? 400 : /NOT_FOUND/.test(message) ? 404 : 500 }
+function status(error: unknown): number { const message = error instanceof Error ? error.message : 'UNKNOWN_ERROR'; return error instanceof OpenMetadataMcpError ? error.statusCode : /REQUIRED|INVALID|TOO_LARGE|CSV_|DATA_|ASSET_ID|MAPPING_|CONFIRMATION|DASHBOARD_PLAN|HISTORY_/.test(message) ? 400 : /NOT_FOUND/.test(message) ? 404 : 500 }
 const TEMPLATE_SELECTION_COOKIE = 'dsh-workbench-design-template'
 function cookieValue(request: IncomingMessage, name: string): string | undefined { return request.headers.cookie?.split(';').map(value => value.trim()).find(value => value.startsWith(`${name}=`))?.slice(name.length + 1) }
 function selectionCookie(templateId: string): string { return `${TEMPLATE_SELECTION_COOKIE}=${encodeURIComponent(templateId)}; Path=/; Max-Age=28800; SameSite=Strict; HttpOnly` }
@@ -79,8 +82,9 @@ type WorkbenchModel = {
   generateDashboard(input: { csv: string; fileName: string; businessGoal: string }, signal?: AbortSignal, onTextDelta?: (delta: string) => void): Promise<{ html: string; title: string; summary: string }>
 }
 
-export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?: WorkbenchModel, uploadRoot = './dsh-workbench-library'): WebRoute[] {
+export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?: WorkbenchModel, uploadRoot = './dsh-workbench-library', headlessAgents?: HeadlessDashboardAgentService): WebRoute[] {
   const uploads = new AgentUploadStore(uploadRoot)
+  const history = new WorkbenchHistoryStore(resolve(uploadRoot, 'history', 'build-history.json'))
   const designTemplates = new DesignTemplateLibrary({ cacheRoot: uploadRoot })
   const templateCovers = new TemplateCoverLibrary({ cacheRoot: uploadRoot })
   const omd = new OpenMetadataSemanticHttpClient()
@@ -109,6 +113,18 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
       if (!isTrustedBrowser(request)) return json(response, 403, { error: 'FORBIDDEN' })
       const url = new URL(request.url ?? '/', 'http://127.0.0.1')
       try {
+        if (request.method === 'GET' && url.pathname === `${API}/history`) return json(response, 200, { history: await history.read() })
+        if (request.method === 'PUT' && url.pathname === `${API}/history`) {
+          const body = await readJson(request)
+          return json(response, 200, { history: await history.write(body.history) })
+        }
+        if (request.method === 'GET' && url.pathname === `${API}/dashboards`) {
+          const dashboards = await Promise.all((await library.listAssets()).map(async asset => {
+            const stored = await library.readRevision(asset.assetId, asset.latestRevision)
+            return toDashboardSummary(asset, `/dsh-workbench/assets/${encodeURIComponent(asset.assetId)}/${asset.latestRevision}/dashboard.html`, stored.model)
+          }))
+          return json(response, 200, { dashboards })
+        }
         if (request.method === 'POST' && url.pathname === `${API}/analyze`) {
           const body = await readJson(request)
           const csv = required(body.csv, 'csv')
@@ -160,6 +176,55 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
           const csv = required(body.csv, 'csv')
           const fileName = typeof body.fileName === 'string' ? body.fileName : 'dataset.csv'
           return json(response, 201, await uploads.saveCsv(fileName, csv))
+        }
+        if (request.method === 'POST' && url.pathname === `${API}/dashboard-agent-sessions`) {
+          if (!headlessAgents) throw new Error('DASHBOARD_AGENT_NOT_CONFIGURED')
+          const body = await readJson(request)
+          const uploadId = typeof body.uploadId === 'string' ? body.uploadId : undefined
+          let dataset: HeadlessDatasetContext | undefined
+          if (uploadId) {
+            const upload = await uploads.readCsv(uploadId)
+            dataset = { filePath: upload.filePath, fileName: upload.fileName }
+            // Keep an uploaded file attachable even if its CSV profile cannot
+            // be inferred. The agent receives the verified file identity, while
+            // the UI simply omits the optional field summary.
+            try {
+              const analysis = analyzeCsv(upload.csv)
+              dataset = {
+                ...dataset,
+                rowCount: analysis.rowCount,
+                fieldCount: analysis.headers.length,
+                fields: analysis.headers.slice(0, 12),
+                dateFields: analysis.fields.filter(field => field.inferredType === 'date').map(field => field.name).slice(0, 6),
+                numberFields: analysis.fields.filter(field => field.inferredType === 'number').map(field => field.name).slice(0, 6),
+              }
+            } catch { /* file stays attached without a derived profile */ }
+          }
+          return json(response, 201, { sessionId: await headlessAgents.create(dataset) })
+        }
+        const dashboardAgentMessage = new RegExp(`^${API.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/dashboard-agent-sessions/([a-f0-9-]{36})/messages$`).exec(url.pathname)
+        if (request.method === 'POST' && dashboardAgentMessage) {
+          if (!headlessAgents) throw new Error('DASHBOARD_AGENT_NOT_CONFIGURED')
+          const body = await readJson(request)
+          const sessionId = dashboardAgentMessage[1]
+          if (!headlessAgents.exists(sessionId)) throw new Error('DASHBOARD_AGENT_SESSION_NOT_FOUND')
+          response.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache, no-transform', connection: 'keep-alive', 'x-accel-buffering': 'no' })
+          let closed = false
+          const close = (): void => { if (closed) return; closed = true; unsubscribe(); response.end() }
+          const unsubscribe = headlessAgents.subscribe(sessionId, event => {
+            if (closed) return
+            sse(response, event)
+            if (event.type === 'agent.completed' || event.type === 'agent.stopped' || event.type === 'agent.error') close()
+          })
+          response.once('close', () => { if (!closed) { closed = true; unsubscribe() } })
+          sse(response, { type: 'session.started', data: { sessionId } })
+          try { headlessAgents.send(sessionId, required(body.prompt, 'prompt')) } catch (error) { sse(response, { type: 'agent.error', data: { message: error instanceof Error ? error.message : '无法发送消息' } }); close() }
+          return
+        }
+        const dashboardAgentCancel = new RegExp(`^${API.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/dashboard-agent-sessions/([a-f0-9-]{36})/cancel$`).exec(url.pathname)
+        if (request.method === 'POST' && dashboardAgentCancel) {
+          if (!headlessAgents) throw new Error('DASHBOARD_AGENT_NOT_CONFIGURED')
+          return json(response, 200, { cancelled: headlessAgents.cancel(dashboardAgentCancel[1]) })
         }
         if (request.method === 'GET' && url.pathname === `${API}/design-templates`) {
           const result = await designTemplates.listResult()

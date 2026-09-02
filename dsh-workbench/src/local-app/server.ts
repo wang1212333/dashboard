@@ -11,6 +11,8 @@ import { DashboardAgentRunService, type DashboardRunEvent } from '../agent-run/d
 import { DesignTemplateLibrary, toBrowserTemplate, withDesignTemplate } from '../design-library/design-template-library.js'
 import { TemplateCoverLibrary } from '../design-library/template-cover-library.js'
 import { renderLocalWorkbenchPage } from './page.js'
+import { toDashboardSummary } from './dashboard-repository.js'
+import { WorkbenchHistoryStore } from './history-store.js'
 import { confirmDashboardPlan, isDashboardSpec, planFromAnalysis } from '../dashboard-agent/workflow.js'
 import type { DashboardPlan, DashboardPlanConfirmation } from '../dashboard-agent/contracts.js'
 import type { SemanticContext } from '../data-connectors/openmetadata-mcp.js'
@@ -105,7 +107,7 @@ function clearSelectionCookie(): string { return `${TEMPLATE_SELECTION_COOKIE}=;
 function errorStatus(error: unknown): number {
   const message = error instanceof Error ? error.message : 'UNKNOWN_ERROR'
   if (error instanceof OpenMetadataMcpError) return error.statusCode
-  if (/REQUIRED|INVALID|TOO_LARGE|CSV_|DATA_|ASSET_ID|CONFIRMATION|MAPPING_|DASHBOARD_PLAN/.test(message)) return 400
+  if (/REQUIRED|INVALID|TOO_LARGE|CSV_|DATA_|ASSET_ID|CONFIRMATION|MAPPING_|DASHBOARD_PLAN|HISTORY_/.test(message)) return 400
   if (/NOT_FOUND/.test(message)) return 404
   return 500
 }
@@ -113,6 +115,7 @@ function errorStatus(error: unknown): number {
 export function createLocalWorkbenchServer(options: LocalWorkbenchAppOptions): Server {
   const library = new FilesystemKnowledgeLibrary(options.libraryRoot)
   const uploads = new AgentUploadStore(options.libraryRoot)
+  const history = new WorkbenchHistoryStore(resolve(options.libraryRoot, 'history', 'build-history.json'))
   const designTemplates = new DesignTemplateLibrary({ cacheRoot: options.libraryRoot })
   const templateCovers = new TemplateCoverLibrary({ cacheRoot: options.libraryRoot })
   const omd = new OpenMetadataSemanticHttpClient()
@@ -134,6 +137,18 @@ export function createLocalWorkbenchServer(options: LocalWorkbenchAppOptions): S
       if (request.method === 'GET' && url.pathname === '/') return html(response, renderLocalWorkbenchPage())
       if (request.method === 'GET' && url.pathname === '/assets/data-agent-logo-black.png') return readFile(DATA_AGENT_LOGO_PATH).then(value => png(response, value))
       if (request.method === 'GET' && url.pathname === '/assets/three.module.js') return readFile(THREE_MODULE_PATH, 'utf8').then(value => javascript(response, value))
+      if (request.method === 'GET' && url.pathname === '/api/history') return json(response, 200, { history: await history.read() })
+      if (request.method === 'PUT' && url.pathname === '/api/history') {
+        const body = await readJson(request)
+        return json(response, 200, { history: await history.write(body.history) })
+      }
+      if (request.method === 'GET' && url.pathname === '/api/dashboards') {
+        const dashboards = await Promise.all((await library.listAssets()).map(async asset => {
+          const stored = await library.readRevision(asset.assetId, asset.latestRevision)
+          return toDashboardSummary(asset, `/assets/${encodeURIComponent(asset.assetId)}/${asset.latestRevision}/dashboard.html`, stored.model)
+        }))
+        return json(response, 200, { dashboards })
+      }
       if (request.method === 'POST' && url.pathname === '/api/analyze') {
         const body = await readJson(request)
         return json(response, 200, analyzeCsv(requiredString(body.csv, 'csv')))

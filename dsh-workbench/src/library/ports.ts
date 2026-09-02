@@ -58,6 +58,7 @@ export interface ObjectStore {
  */
 export interface MetadataRepository {
   getAsset(workspaceId: string, assetId: string): Promise<MetadataAsset | undefined>
+  listAssets(workspaceId: string): Promise<MetadataAsset[]>
   getRevision(workspaceId: string, assetId: string, revision: string): Promise<MetadataRevision | undefined>
   createDraft(input: { workspaceId: string; asset: LibraryAsset; revision: MetadataRevision; audit: AuditEventInput }): Promise<void>
   preview(input: { workspaceId: string; assetId: string; revision: string; audit: AuditEventInput }): Promise<MetadataRevision>

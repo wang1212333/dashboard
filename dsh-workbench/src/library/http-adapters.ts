@@ -50,6 +50,7 @@ export class HttpMetadataRepository implements MetadataRepository {
   private readonly client: HttpClient
   constructor(config: HttpClientConfig) { this.client = new HttpClient(config) }
   async getAsset(workspaceId: string, assetId: string): Promise<MetadataAsset | undefined> { return this.find<MetadataAsset>(`/v1/workspaces/${encodeURIComponent(workspaceId)}/assets/${encodeURIComponent(assetId)}`) }
+  async listAssets(workspaceId: string): Promise<MetadataAsset[]> { return this.client.request(`/v1/workspaces/${encodeURIComponent(workspaceId)}/assets`) }
   async getRevision(workspaceId: string, assetId: string, revision: string): Promise<MetadataRevision | undefined> { return this.find<MetadataRevision>(`/v1/workspaces/${encodeURIComponent(workspaceId)}/assets/${encodeURIComponent(assetId)}/revisions/${encodeURIComponent(revision)}`) }
   async createDraft(input: { workspaceId: string; asset: MetadataAsset['asset']; revision: MetadataRevision; audit: AuditEventInput }): Promise<void> { await this.client.request('/v1/library/drafts', this.json('POST', input)) }
   async preview(input: { workspaceId: string; assetId: string; revision: string; audit: AuditEventInput }): Promise<MetadataRevision> { return this.client.request('/v1/library/revisions/preview', this.json('POST', input)) }

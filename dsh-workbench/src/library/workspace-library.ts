@@ -131,6 +131,11 @@ export class WorkspaceKnowledgeLibrary implements KnowledgeLibrary {
     return asset.asset
   }
 
+  async listAssets(): Promise<LibraryAsset[]> {
+    const actor = await this.authorize('dashboard.read')
+    return (await this.metadata.listAssets(actor.workspaceId)).map(item => item.asset).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+  }
+
   private async authorize(action: AuditEventInput['action']): Promise<WorkspacePrincipal> {
     const actor = await this.identity.current()
     this.authorizer.assert(actor, action)

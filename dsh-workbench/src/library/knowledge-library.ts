@@ -18,4 +18,6 @@ export interface KnowledgeLibrary {
   getRelease(assetId: string): Promise<StoredDashboardRevision>
   readRevision(assetId: string, revision?: string): Promise<StoredDashboardRevision>
   getAsset(assetId: string): Promise<LibraryAsset>
+  /** Read the dashboard index used by the local “我的看板” page. */
+  listAssets(): Promise<LibraryAsset[]>
 }

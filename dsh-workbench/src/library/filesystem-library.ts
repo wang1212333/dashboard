@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { buildDashboardFromCsv, type BuildDashboardOptions } from '../dashboard-build/build.js'
 import { buildAgentNativeDashboard, type AgentNativeDashboardInput } from '../dashboard-build/agent-native.js'
@@ -134,6 +134,17 @@ export class FilesystemKnowledgeLibrary implements KnowledgeLibrary {
   }
 
   async getAsset(assetId: string): Promise<LibraryAsset> { return this.readAsset(assetId) }
+
+  async listAssets(): Promise<LibraryAsset[]> {
+    const root = join(this.root, 'assets')
+    if (!await exists(root)) return []
+    const entries = await readdir(root, { withFileTypes: true })
+    const assets = await Promise.all(entries.filter(entry => entry.isDirectory() && ASSET_ID.test(entry.name)).map(async entry => {
+      const path = join(root, entry.name, 'asset.json')
+      return await exists(path) ? readJson<LibraryAsset>(path) : undefined
+    }))
+    return assets.filter((asset): asset is LibraryAsset => Boolean(asset)).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+  }
 
   private async tryReadAsset(assetId: string): Promise<LibraryAsset | undefined> {
     return await exists(this.assetPath(assetId)) ? readJson<LibraryAsset>(this.assetPath(assetId)) : undefined

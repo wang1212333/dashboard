@@ -1,37 +1,90 @@
-# My Dashboards filter styling QA
+# 资料库按钮区视觉核对
 
-## Comparison target
+## 对比对象
 
-- Source visual truth: `C:/Users/Administrator/AppData/Local/Temp/codex-clipboard-64d00ccf-7ca7-48fe-9bbf-3a1d86d9dd9d.png`
-- Implementation: browser-rendered `http://127.0.0.1:3080/dsh-workbench?embedded=1`, after opening “我的看板” and selecting “未发布”.
-- Viewport: 1280 × 720 CSS px, device scale factor 1.
-- Source dimensions: 308 × 62 px. Implementation evidence: in-app browser capture from the same QA run (full viewport; focused filter region inspected).
-- State: selected filter pill.
+- Source visual truth: `C:/Users/Administrator/AppData/Local/Temp/codex-clipboard-11cd9bbf-2587-473a-aebb-75af5bf0a296.png`
+- Implementation: `http://127.0.0.1:4317` 的资料库页
+- Viewport / density: 未固定；浏览器可见 DOM 已确认资料库页的标题、搜索、新建、筛选及两个分类按钮。
+- State: 知识库标签已选中；样式库标签用于进入既有样式选择内容。
+
+## 已确认的实现
+
+- 导航标签显示为“资料库”。
+- 资料库页仅显示“知识库”和“样式库”两个分类按钮。
+- 搜索框、“新建”按钮与“筛选”按钮保留在页头区域。
+- 点击“样式库”的代码路径会导航至原有 `/templates` 样式内容页。
+
+## 五项保真核对
+
+- Fonts and typography: 使用当前工作台既有字体栈、字号与字重；未引入新字体。
+- Spacing and layout rhythm: 标题、搜索、新建在同一行；分类按钮与筛选位于第二行工具栏。
+- Colors and visual tokens: 使用既有黑白中性色、浅灰选中态与圆角按钮语言。
+- Image quality and asset fidelity: 目标区域没有需要新增的图片资产；未创建替代图像资产。
+- Copy and content: 已改为“资料库 / 知识库 / 样式库”，并保留“新建 / 筛选 / 搜索”。
 
 ## Findings
 
-- No P0/P1/P2 visual differences for the requested filter treatment.
-- The source’s labels are “全部 / 图片 / 文件”; the implementation retains the product’s existing semantic labels “全部 / 已发布 / 未发布”. This is intentional so the dashboard status filters remain understandable and functional.
+- [P2] 无法完成“样式库”子页面的浏览器截图比对。
+  - Evidence: 浏览器在点击“样式库”后阻止读取本地 `/templates` 子路径。
+  - Impact: 无法从浏览器视觉层面确认子页面标题与既有样式内容的最终呈现。
+  - Fix: 在允许访问该本地子路径的浏览器环境中重新截图并比较；代码构建和自动化测试均已通过。
 
-## Fidelity surfaces
+## Primary interactions tested
 
-- Fonts and typography: 14px regular-weight labels preserve the compact, neutral treatment in the reference.
-- Spacing and layout rhythm: 8px inter-item gaps, 36px control height, and 18px radius match the reference’s compact pill rhythm.
-- Colors and visual tokens: selected state uses `#f2f2f2` on white; inactive labels stay muted.
-- Image quality and asset fidelity: no image assets are part of this UI treatment.
-- Copy and content: existing status-filter wording is intentionally preserved.
-
-## Interaction and runtime checks
-
-- Clicked “未发布”; the selected state changed to a light-gray rounded pill and the status filter remained functional.
-- Browser console errors: none.
+1. 进入本地工作台后，侧边栏“资料库”可见。
+2. 点击“资料库”后，知识库、样式库、搜索、新建、筛选均可见。
+3. 点击“样式库”会触发到既有样式页的导航；后续浏览器读取被安全策略阻止。
 
 ## Implementation checklist
 
-- [x] Remove the dashboard tab-strip baseline and selected underline.
-- [x] Apply the compact rounded selected state.
-- [x] Verify the selected state in the running local page.
+- [x] 替换资料库入口为紧凑分类按钮。
+- [x] 仅保留知识库、样式库两个分类按钮。
+- [x] 保留搜索、新建、筛选控件。
+- [x] 将样式库连接到原有样式内容页。
+- [ ] 在可访问本地子路径的浏览器中完成最终截图比较。
 
-## Final result
+## Comparison history
 
-passed
+1. 初始实现使用内容卡片，不符合用户给出的按钮参考；已改为紧凑标签按钮。
+2. 自动化 DOM 核对通过；样式库子页面的截图核对受浏览器本地路径策略阻止。
+
+final result: blocked
+
+---
+
+# 我的看板页面视觉核对（2026-09-02）
+
+## 对比对象
+
+- Source visual truth: `C:/Users/Administrator/AppData/Local/Temp/codex-clipboard-32c07141-633e-4525-aaee-538af9a8728e.png`（1718 × 910）。
+- Implementation: `http://127.0.0.1:3080/dsh-workbench` 的“我的看板”状态；通过当前 DSH 宿主内嵌工作台实际点击并截图核验。
+- State: “我的看板 / 全部 / 卡片视图”已选中；随后打开一张真实看板的版本管理栏。
+- Viewport normalization: 参考图为完整桌面页；实现截图来自宿主内嵌内容区，因此只比较同一页面内容、工具栏、卡片与版本栏的比例和状态，不将宿主侧栏宽度纳入保真判断。
+
+## Findings
+
+- 无 P0/P1/P2 未解决项。
+- [P3] 当前资料库仅返回 1 张真实看板，参考图展示 6 张示例卡片；这是数据量差异，不以虚构资产填充。
+- [P3] 当工作台内容区收窄至移动端宽度时，版本栏以覆盖式抽屉呈现；在桌面断点保持 304px 固定版本栏并通过内容区收缩让位。
+
+## 五项保真核对
+
+- Fonts and typography: 沿用工作台现有 Inter / PingFang SC 字体栈；标题、标签、元信息和版本栏的层级已收紧到参考图的轻量密度。
+- Spacing and layout rhythm: 桌面侧栏为 195px，页面边距 28–30px，卡片间距 16px，控件高度 32–34px；版本栏宽度为 304px。
+- Colors and visual tokens: 使用白、浅灰和深灰；主操作为黑色，不使用蓝色选中背景、渐变或厚重阴影。
+- Image quality and asset fidelity: 卡片继续使用真实看板文档 iframe 预览，不替换为静态占位图。
+- Copy and content: 保留真实 `/api/dashboards` 数据；最近对话默认限定 5 条，对技术性名称归一为“数据看板搭建”，超出时显示“查看全部”。
+
+## Primary interactions tested
+
+1. 进入“我的看板”，一级标签、二级筛选、搜索、卡片/列表切换和新建按钮均可见。
+2. 点击卡片标题后可打开右侧版本栏，显示真实标题、当前版本、更新时间、来源对话与版本记录入口。
+3. 卡片视图以 `repeat(auto-fill, minmax(300px, 1fr))` 响应式排版；版本栏桌面宽度为 304px。
+
+## Comparison history
+
+1. 初始状态的一级标签被覆盖成胶囊样式，且工具栏采用绝对定位；已恢复为文字标签、黑色短下划线和正常流式工具栏。
+2. 初始状态版本栏顶部偏移且视觉过重；已收紧为 304px 的浅边线栏，并在桌面通过内容区右侧留白避免覆盖卡片。
+3. 初始侧栏历史列表会无限延长并显示 `sample` 等技术名；已限制默认显示 5 条并提供展开入口。
+
+final result: passed

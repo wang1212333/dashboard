@@ -31,10 +31,18 @@ describe('local import app', () => {
     expect(page).toContain('sent-attachment')
     expect(page).toContain("attachmentName:attachmentName||''")
     expect(page).toContain("state.file=null;state.draft='';beginLiveStream(sentQuestion,selectedFile.name)")
-    expect(page).toContain('csv:await selectedFile.text()')
-    expect(page).toContain("title:'生成看板：'+selectedFile.name")
+    expect(page).toContain('const csv=await selectedFile.text()')
+    expect(page).toContain('dashboard-agent-sessions')
     expect(page).toContain('intent:sentQuestion')
     expect(page).not.toContain('intent:state.draft')
+    expect(page).toContain('html,body{height:100%;overflow:hidden}')
+    expect(page).toContain("content.addEventListener('scroll'")
+    expect(page).toContain('streamRenderPending')
+    expect(page).not.toContain('window.scrollTo')
+    expect(page).toContain("state.stream.output=(state.stream.output||'')+(data.text||'')")
+    expect(page).not.toContain('stripInternalReasoning')
+    expect(page).toContain('conversationTurnsHtml')
+    expect(page).toContain('ensureConversationHistory')
   })
 
   it('renders syntactically valid template-library behavior with an explicit selection endpoint', () => {
@@ -66,19 +74,20 @@ describe('local import app', () => {
     expect(page).toContain("location.assign('/dsh-workbench?page='+encodeURIComponent(button.dataset.page||'new'))")
   })
 
-  it('includes the interactive my-dashboards workspace with URL-first view preferences', () => {
+  it('preserves the existing my-dashboards layout while loading the dashboard API', () => {
     const page = renderLocalWorkbenchPage()
     expect(page).toContain('管理和访问你创建的全部看板。')
-    expect(page).toContain('.my-dashboards .dash-tabs{border-bottom:1px solid var(--border)}')
-    expect(page).toContain('.my-dashboards .dash-statuses{gap:8px}')
-    expect(page).toContain('border-radius:18px;font-size:14px;font-weight:400')
-    expect(page).toContain('border-color:transparent;background:#f2f2f2')
+    expect(page).toContain("fetch('/api/dashboards')")
+    expect(page).toContain("state.items=(Array.isArray(payload.dashboards)?payload.dashboards:[]).map")
+    expect(page).toContain('dashboard-preview-frame')
+    expect(page).toContain('sandbox="allow-scripts"')
     expect(page).toContain("dsh.dashboard-workbench.view-mode")
     expect(page).toContain("['mine','shared','favorites']")
     expect(page).toContain('卡片视图')
     expect(page).toContain('列表视图')
     expect(page).toContain('删除看板？')
-    expect(page).toContain('原始对话已不存在')
+    expect(page).toContain("dsh-workbench:build-history")
+    expect(page).toContain("/api/dsh-workbench/history")
   })
 
   it('uses an icon-only, accessible collapsed sidebar for every navigation item', () => {
@@ -187,8 +196,19 @@ describe('local import app', () => {
     expect(draft).toMatchObject({ revision: { revision: 'rev-0001', stage: 'draft' }, quality: { validRows: 2 }, dashboardUrl: '/assets/my-content-dashboard/rev-0001/dashboard.html' })
     await expect((await fetch(`${app.url}/assets/my-content-dashboard/rev-0001/source.html`)).text()).resolves.toContain('内容运营看板')
     await expect((await fetch(`${app.url}${draft.dashboardUrl}`)).text()).resolves.toContain('内容运营看板')
+    const dashboards = await fetch(`${app.url}/api/dashboards`)
+    await expect(dashboards.json()).resolves.toMatchObject({ dashboards: [expect.objectContaining({ id: 'my-content-dashboard', title: '内容运营看板', dashboardUrl: '/assets/my-content-dashboard/rev-0001/dashboard.html' })] })
     expect((await fetch(`${app.url}/api/preview`, { method: 'POST' })).status).toBe(404)
     expect((await fetch(`${app.url}/api/release`, { method: 'POST' })).status).toBe(404)
+  })
+
+  it('persists dashboard build history in the local library', async () => {
+    const app = await start()
+    const history = [{ sessionId: 'f9b7e61a-3b50-4661-a4bf-0e2eb424a741', title: '生成看板：库存经营', createdAt: 1770000000000, timeline: [{ type: 'tool', status: 'completed' }] }]
+    const saved = await fetch(`${app.url}/api/history`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ history }) })
+    expect(saved.status).toBe(200)
+    await expect(saved.json()).resolves.toMatchObject({ history })
+    await expect((await fetch(`${app.url}/api/history`)).json()).resolves.toMatchObject({ history })
   })
 
   it('does not expose a direct raw Spec build endpoint', async () => {
