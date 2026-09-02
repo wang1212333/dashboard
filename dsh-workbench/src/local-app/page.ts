@@ -257,19 +257,11 @@ function behaviorV2(): string {
   async function selectOmdAsset(button){const fqn=button.dataset.omdFqn,entityType=button.dataset.omdEntityType;if(!fqn||!entityType)return;const api=location.pathname.startsWith('/dsh-workbench')?'/api/dsh-workbench':'/api';button.disabled=true;const detail=button.querySelector('small');if(detail)detail.textContent='正在读取实体详情…';try{const response=await fetch(api+'/omd/details',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({fqn,entityType})});const data=await response.json();if(!response.ok)throw new Error(data.error||'读取实体详情失败');state.omdAsset=data.asset;state.sourceMode='omd';state.stream.omdCandidates=[];state.stream.omdAsset=data.asset;state.stream.output='已核验所选资产的字段与业务定义。下一步需要连接该资产的只读查询数据源，才会生成包含真实数值的看板；当前不会把元数据当作业务数值。';refreshStream()}catch(error){button.disabled=false;if(detail)detail.textContent=error instanceof Error?error.message:'读取实体详情失败'}}
   document.addEventListener('click',event=>{const select=event.target instanceof Element?event.target.closest('[data-omd-select]'):null;if(select){event.preventDefault();void selectOmdAsset(select);return;}const remove=event.target instanceof Element?event.target.closest('#remove-omd'):null;if(remove){event.preventDefault();state.sourceMode='local';state.omdAsset=null;render();return;}const send=event.target instanceof Element?event.target.closest('#send-button'):null;if(!send||state.sourceMode!=='omd'||state.file)return;event.preventDefault();event.stopImmediatePropagation();if(state.sending){state.sending=false;state.streamState='stopped';refreshStream();return;}if(!state.omdAsset){void searchOmdAssets();return;}state.stream.output='已完成 OMD 语义核验。要生成包含真实数值的看板，还需要为 '+state.omdAsset.name+' 配置只读数据查询连接；在连接可用前，系统只会提供语义方案，不会生成虚构数值。';refreshStream();},true);
   render();renderHistory();
-  document.addEventListener('click',event=>{
-    const target=event.target instanceof Element?event.target.closest('#send-button'):null;
-    // Capture every normal send before the legacy local runs handler. The
-    // same Headless DSH Agent owns both the standalone page and iframe page.
-    if(!target)return;
-    event.preventDefault();event.stopImmediatePropagation();
-    if(state.sending){
-      if(state.dashboardAgentSessionId)void fetch(dashboardAgentApi()+'/dashboard-agent-sessions/'+encodeURIComponent(state.dashboardAgentSessionId)+'/cancel',{method:'POST'});
-      state.sending=false;state.streamState='stopped';if(state.stream)state.stream.stopped=true;refreshStream();
-      return;
-    }
-    void startHostAgentRun();
-  },true);
+  // The established local Run API owns the default composer flow. It emits
+  // text deltas and tool events directly from the configured DSH model.
+  // Headless agent sessions remain available as an explicit integration path,
+  // but must not intercept the standard send control until their wake-up
+  // lifecycle is verified end to end.
   const templateStatusLabel=status=>status==='ready'?'预览已生成':status==='building'||status==='rendering'?'生成中':status==='failed'?'预览生成失败':'等待生成';
   loadTemplatePage=async function(){
     const host=document.getElementById('template-library-results'),status=document.getElementById('template-library-status');if(!host||!status)return;
