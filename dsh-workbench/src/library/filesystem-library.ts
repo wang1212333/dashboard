@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { buildDashboardFromCsv, type BuildDashboardOptions } from '../dashboard-build/build.js'
+import { buildAgentNativeDashboard, type AgentNativeDashboardInput } from '../dashboard-build/agent-native.js'
 import type { DashboardManifest } from '../dashboard-build/contracts.js'
 import type { LibraryAsset, ReleasePointer, RevisionRecord, StoredDashboardRevision } from './contracts.js'
 import type { KnowledgeLibrary, LifecycleCommand } from './knowledge-library.js'
@@ -30,6 +31,34 @@ export class FilesystemKnowledgeLibrary implements KnowledgeLibrary {
     const previousAsset = await this.tryReadAsset(options.assetId)
     const previousManifest = previousAsset ? await this.readManifest(options.assetId, previousAsset.latestRevision) : undefined
     const result = buildDashboardFromCsv(csv, { ...options, previousManifest })
+    const asset = this.toAsset(result.manifest, previousAsset)
+    const revision: RevisionRecord = { assetId: asset.assetId, revision: result.manifest.revision, stage: 'draft', createdAt: result.manifest.updatedAt, updatedAt: result.manifest.updatedAt, quality: result.quality }
+    const revisionDirectory = this.revisionDirectory(asset.assetId, revision.revision)
+    if (await exists(revisionDirectory)) throw new Error(`REVISION_ALREADY_EXISTS:${revision.revision}`)
+    const temporaryDirectory = `${revisionDirectory}.tmp-${process.pid}`
+    await mkdir(temporaryDirectory, { recursive: true })
+    try {
+      await Promise.all([
+        writeFile(join(temporaryDirectory, 'dashboard.html'), result.html, 'utf8'),
+        writeFile(join(temporaryDirectory, 'manifest.json'), JSON.stringify(result.manifest, null, 2), 'utf8'),
+        writeFile(join(temporaryDirectory, 'quality.json'), JSON.stringify(result.quality, null, 2), 'utf8'),
+        writeFile(join(temporaryDirectory, 'model.json'), JSON.stringify(result.model, null, 2), 'utf8'),
+        writeFile(join(temporaryDirectory, 'revision.json'), JSON.stringify(revision, null, 2), 'utf8'),
+      ])
+      await rename(temporaryDirectory, revisionDirectory)
+      await writeJsonAtomic(this.assetPath(asset.assetId), asset)
+    } catch (error) {
+      await rm(temporaryDirectory, { recursive: true, force: true })
+      throw error
+    }
+    return { asset, revision, manifest: result.manifest, quality: result.quality, model: result.model, html: result.html }
+  }
+
+  async buildAgentNativeDraft(input: AgentNativeDashboardInput): Promise<StoredDashboardRevision> {
+    this.assertAssetId(input.assetId)
+    const previousAsset = await this.tryReadAsset(input.assetId)
+    const previousManifest = previousAsset ? await this.readManifest(input.assetId, previousAsset.latestRevision) : undefined
+    const result = buildAgentNativeDashboard({ ...input, previousManifest })
     const asset = this.toAsset(result.manifest, previousAsset)
     const revision: RevisionRecord = { assetId: asset.assetId, revision: result.manifest.revision, stage: 'draft', createdAt: result.manifest.updatedAt, updatedAt: result.manifest.updatedAt, quality: result.quality }
     const revisionDirectory = this.revisionDirectory(asset.assetId, revision.revision)

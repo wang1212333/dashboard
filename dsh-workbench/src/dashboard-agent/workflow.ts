@@ -10,6 +10,7 @@ const TEMPLATE_ROLES: Record<DashboardPlan['templateId'], string[]> = {
   'finance-pnl-v1': ['period', 'dimension', 'revenue', 'cost', 'profit'],
   'supply-sales-v1': ['period', 'country', 'forecast', 'shipments', 'sellIn', 'sellOut', 'inventory', 'dos'],
   'sku-operations-v1': ['period', 'item', 'inventory'],
+  'agent-native/v1': [],
 }
 
 export function createDashboardPlan(input: DashboardPlanInput): DashboardPlan {

@@ -26,5 +26,5 @@ if (!inputPath || !outputPath) {
   })
   await mkdir(dirname(target), { recursive: true })
   await writeFile(target, result.html, 'utf8')
-  console.log(JSON.stringify({ output: target, validRows: result.quality.validRows, rejectedRows: result.quality.rejectedRows.length, timeframe: result.model.timeframe, note: 'For versioned artifacts and quality reports, use library:run.' }, null, 2))
+  console.log(JSON.stringify({ output: target, validRows: result.quality.validRows, rejectedRows: result.quality.rejectedRows.length, timeframe: 'timeframe' in result.model ? result.model.timeframe : undefined, note: 'For versioned artifacts and quality reports, use library:run.' }, null, 2))
 }

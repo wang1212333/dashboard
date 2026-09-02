@@ -1,32 +1,20 @@
 # dsh-workbench
 
-一个面向 AI 工作台的 DeepSeek Harness 看板插件。它将 Agent 收敛到数据理解、语义验证、故事线确认和确定性 HTML 生成。
+一个面向 AI 工作台的 DeepSeek Harness 看板插件。默认让 DSH Agent 直接基于用户目标与 CSV 自由生成完整看板；旧的受控工作流保留为兼容模式。
 
-## 受控看板 Agent 工作流
+## 默认：原生 DSH 自由生成
 
-看板 Agent 不直接生成 HTML。模型负责理解用户意图、数据和语义，并提出受 JSON 结构约束的 `DashboardPlan`；确定性代码根据已确认的故事线和模板生成 HTML。
+网页工作台的默认链路不再要求业务模板 ID、字段映射、Plan、人工确认或 `DashboardSpec`：
 
 ```text
-用户意图 → CSV 数据画像 →（可选）SemanticContext 与数据验证
-    → DashboardPlan（自动字段映射、指标、筛选与故事线）
-    → 用户确认业务意图与故事线 → 受控模板渲染 → 返回 HTML 与质量报告
-
-所有看板默认采用 `universal-dashboard/v1` 信息架构：语境、全局筛选、3–6 个核心结论、主叙事、行动、探索明细和数据可信度。业务模板只决定字段合同、指标和图表语义，不能省略这条从结论回溯到证据的路径。
-
-视觉风格是 `DashboardSpec.visualContract`，而非模型自由生成的 CSS。该合同包含 `designTemplateId`、受校验的色板、字体和组件 token；确定性渲染器以 CSS 变量实际消费它。未选择风格时记录 `universal-default`；选择 Clickhouse 等风格时，Agent 必须将其转写成 `dashboard-visual/v1` 后再创建 Plan。
+用户目标 + 完整 CSV
+    → 当前 DSH 模型自主分析、设计并生成完整 HTML
+    → 保存为不可变 Revision → 返回可预览看板
 ```
 
-DSH 工具顺序（默认交付路径）：
+模型不再读取、加载或参照任何预置通用模板；它直接根据用户问题和原始数据决定信息架构、指标、图表、交互和视觉实现，然后保存完整 HTML。
 
-1. `workbench_analyze_dataset`：理解上传数据。
-2. OpenMetadata 检索与 `workbench_assess_semantic_evidence`：补充字段与指标语义，并与 CSV 验证。
-3. `workbench_create_dashboard_plan`：生成自动字段映射、模板、筛选键和故事线。
-4. `workbench_confirm_dashboard_plan`：只确认业务意图与故事线。
-5. `workbench_build_dashboard`：用确认 Spec 和 Plan 已绑定的原始 CSV 生成 HTML；构建阶段不接受模型重新传入的 CSV。
-
-构建工具不再采用 Draft-first 兜底：没有来自已确认故事线的有效 Spec 时会直接报错，避免把错误推断生成成 HTML。
-
-关于为何不让模型直接输出看板，以及从 Brief、数据画像、语义验证到 HTML 交付的完整职责边界，见 [通用数据看板生成工作流](docs/dashboard-generation-workflow.md)。
+旧的 Plan / Confirm / Spec / 确定性模板实现不再向 DSH Agent 注册；它们仅作为历史代码和已有资产的兼容基础留在仓库与 Git 历史中。
 
 ## OpenMetadata 语义 MCP
 
@@ -39,7 +27,7 @@ OPENMETADATA_MCP_TOKEN=<只读访问令牌>
 
 重启 DSH 后，模型可使用 `mcp__openmetadata_semantic__semantic_search`、`get_entity_details` 和 `get_entity_lineage`。只要配置了 Token，插件会在启动时完成 MCP 握手和工具发现；连接失败会明确阻止启动，绝不静默降级。
 
-OMD 处在“数据画像”和“方案生成”之间：Agent 先从用户目标和 CSV 字段形成语义问题，检索候选资产，再逐个读取实体详情，最后调用 `workbench_assess_semantic_evidence`。该上下文和 CSV 验证结果进入 `DashboardPlan`，为自动字段映射、指标和故事线提供依据。OMD 不可用或不完整时，系统使用字段名、类型和非空情况继续构建，并在最终结果中记录限制；MVP 不要求用户逐个确认字段或指标。Token 只能留在 DSH 宿主环境变量中，不能出现在代码、看板 HTML 或 Agent 参数中。
+OMD 是可选的语义参考。Agent 可以自行检索并采用其中的定义、术语和血缘，也可以完全基于用户的目标与 CSV 完成看板；OMD 是否可用不会阻断生成。Token 只能留在 DSH 宿主环境变量中，不能出现在代码、看板 HTML 或 Agent 参数中。
 
 > 安全建议：为插件单独签发权限最小化的只读服务 Token；不要使用个人管理员 Token，也不要把 Token 打进发布包。若个人 Token 曾出现在聊天、日志或代码中，请立即在 OpenMetadata 中撤销并重新签发。
 
@@ -130,14 +118,7 @@ workspace（或已经解析 `@deepseek-ai/cordis` 和 `@deepseek-ai/dsh-tools` �
 pnpm dsh web --patch ./local-workbench.patch.yml
 ```
 
-启动后，Agent 可发现下列工具：
-
-- `workbench_list_dashboard_templates`
-- `workbench_analyze_dataset`
-- `workbench_assess_semantic_evidence`
-- `workbench_create_dashboard_plan`
-- `workbench_confirm_dashboard_plan`
-- `workbench_build_dashboard`
+启动后，Agent 可发现原生生成工具，以及可选的数据画像和语义证据工具。
 
 ## 打包为 DSH Bundle
 

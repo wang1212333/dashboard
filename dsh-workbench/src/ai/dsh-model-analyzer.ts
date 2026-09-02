@@ -21,6 +21,18 @@ export interface ModelAnalysisInfo {
 
 export type EnrichedCsvAnalysis = CsvAnalysis & { ai: ModelAnalysisInfo }
 
+export interface NativeDashboardRequest {
+  csv: string
+  fileName: string
+  businessGoal: string
+}
+
+export interface NativeDashboardGeneration {
+  html: string
+  title: string
+  summary: string
+}
+
 /**
  * Model-assisted analysis is deliberately advisory: deterministic profiling
  * always runs first, and the model may only select a known template and known
@@ -43,6 +55,32 @@ export class DshModelAnalyzer {
     }
   }
 
+  /**
+   * Native mode intentionally bypasses template IDs, Plan/Spec conversion and
+   * confirmation. The selected DSH model receives the user's complete CSV,
+   * intent and reusable dashboard guides, then authors the final document.
+   */
+  async generateDashboard(input: NativeDashboardRequest, signal?: AbortSignal, onTextDelta?: (delta: string) => void): Promise<NativeDashboardGeneration> {
+    const route = this.currentRoute()
+    if (!route) throw new Error('DSH_MODEL_NOT_CONFIGURED')
+    const prompt = nativeDashboardPrompt(input)
+    const raw = await this.stream(
+      route,
+      prompt,
+      undefined,
+      undefined,
+      '你是一个拥有完整网页实现能力的数据看板 Agent。请自主理解用户目标与原始数据，直接生成最能解决问题的完整单文件 HTML 看板。你可以自由决定信息架构、指标、图表、交互、视觉语言与前端实现；不要先索取确认，不要返回计划、说明或 Markdown。只输出可直接保存并打开的完整 HTML 文档。',
+      signal,
+      onTextDelta,
+    )
+    const html = extractHtmlDocument(raw)
+    return {
+      html,
+      title: titleFromHtml(html) || input.businessGoal || 'AI 数据看板',
+      summary: '由 DSH 原生模型根据用户目标与原始 CSV 自由生成。',
+    }
+  }
+
   private currentRoute(): ModelRoute | undefined {
     const service = this.ctx.get('agentDefaultModel') as AgentDefaultModel | undefined
     const selection = service?.currentSelection()
@@ -57,7 +95,7 @@ export class DshModelAnalyzer {
 
   async shutdownTracing(): Promise<void> { await this.tracer.shutdown() }
 
-  private async stream(route: ModelRoute, prompt: string, maxTokens = 1_400, maxChars = MAX_MODEL_OUTPUT_CHARS, system = '你是企业数据分析助手。仅基于提供的字段画像提出可审阅的看板建议；绝不虚构数据、字段或计算结果。', signal?: AbortSignal, onTextDelta?: (delta: string) => void): Promise<string> {
+  private async stream(route: ModelRoute, prompt: string, maxTokens: number | undefined = 1_400, maxChars: number | undefined = MAX_MODEL_OUTPUT_CHARS, system = '你是企业数据分析助手。仅基于提供的字段画像提出可审阅的看板建议；绝不虚构数据、字段或计算结果。', signal?: AbortSignal, onTextDelta?: (delta: string) => void): Promise<string> {
     const message = createUserMessage({
       content: [{ type: 'text', text: prompt }],
       source: { kind: 'plugin', plugin: 'dsh-workbench', form: 'notice', summary: '看板工作台请求数据结构分析' },
@@ -68,7 +106,7 @@ export class DshModelAnalyzer {
       messages: [message],
       system,
       temperature: 0.1,
-      maxTokens,
+      ...(maxTokens ? { maxTokens } : {}),
       signal,
     }
     let text = ''
@@ -76,13 +114,32 @@ export class DshModelAnalyzer {
       if (chunk.type === 'text-delta') {
         text += chunk.text
         onTextDelta?.(chunk.text)
-        if (text.length > maxChars) throw new Error('MODEL_OUTPUT_TOO_LARGE')
+        if (maxChars && text.length > maxChars) throw new Error('MODEL_OUTPUT_TOO_LARGE')
       }
       if (chunk.type === 'finish' && (chunk.reason.kind === 'error' || chunk.reason.kind === 'aborted')) throw new Error(chunk.reason.failure.message)
     }
     if (!text.trim()) throw new Error('MODEL_EMPTY_RESPONSE')
     return text
   }
+}
+
+function nativeDashboardPrompt(input: NativeDashboardRequest): string {
+  return `用户需求：${input.businessGoal}\n文件名：${input.fileName}\n\n以下是完整原始 CSV 数据，请直接使用真实字段与数值实现可交互看板：\n${input.csv}`
+}
+
+function extractHtmlDocument(raw: string): string {
+  const fenced = raw.match(/```(?:html)?\s*([\s\S]*?)```/i)?.[1]
+  const candidate = (fenced ?? raw).trim()
+  const start = candidate.search(/<!doctype\s+html|<html\b/i)
+  if (start < 0) throw new Error('MODEL_HTML_REQUIRED')
+  const html = candidate.slice(start)
+  if (!/<\/html\s*>/i.test(html)) throw new Error('MODEL_HTML_INCOMPLETE')
+  return html
+}
+
+function titleFromHtml(html: string): string | undefined {
+  const title = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1]?.replace(/<[^>]+>/g, '').trim()
+  return title || undefined
 }
 
 type ModelProposal = { templateId: string; mapping: DashboardFieldMapping; confidence: number; reason: string; summary?: string; warnings?: string[] }

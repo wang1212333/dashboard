@@ -11,6 +11,7 @@ import type { EnrichedCsvAnalysis } from '../ai/dsh-model-analyzer.js'
 import { AgentUploadStore } from '../data-ingestion/agent-upload-store.js'
 import { assertCsvMatchesSnapshot, assertLatestPeriodComplete, assertSkuMetricSemantics, snapshotCsvSource } from '../data-ingestion/source-integrity.js'
 import { DashboardAgentRunService, type DashboardRunEvent } from '../agent-run/dashboard-agent-run.js'
+import { NativeDashboardRunService, type NativeDashboardRunEvent } from '../agent-run/native-dashboard-run.js'
 import { DesignTemplateLibrary, toBrowserTemplate, withDesignTemplate } from '../design-library/design-template-library.js'
 import { TemplateCoverLibrary } from '../design-library/template-cover-library.js'
 import { renderLocalWorkbenchPage } from '../local-app/page.js'
@@ -38,7 +39,7 @@ function source(response: ServerResponse, value: string): void { response.writeH
 function javascript(response: ServerResponse, value: string): void { response.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=3600' }); response.end(value) }
 function image(response: ServerResponse, value: Buffer): void { response.writeHead(200, { 'content-type': 'image/webp', 'cache-control': 'no-store' }); response.end(value) }
 function png(response: ServerResponse, value: Buffer): void { response.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store' }); response.end(value) }
-function sse(response: ServerResponse, event: DashboardRunEvent): void { response.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`) }
+function sse(response: ServerResponse, event: DashboardRunEvent | NativeDashboardRunEvent): void { response.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`) }
 function required(value: unknown, name: string): string { if (typeof value !== 'string' || !value.trim()) throw new Error(`${name.toUpperCase()}_REQUIRED`); return value.trim() }
 function mapping(value: unknown): DashboardFieldMapping { return !value || typeof value !== 'object' || Array.isArray(value) ? {} : Object.fromEntries(Object.entries(value).filter(([, v]) => typeof v === 'string' && v.trim()).map(([k, v]) => [k, (v as string).trim()])) }
 function template(value: unknown): 'content-ops-v1' | 'finance-pnl-v1' | 'supply-sales-v1' | 'sku-operations-v1' { if (value === 'content-ops-v1' || value === 'finance-pnl-v1' || value === 'supply-sales-v1' || value === 'sku-operations-v1') return value; throw new Error('TEMPLATE_INVALID') }
@@ -75,6 +76,7 @@ function isWorkbenchPageNavigation(request: IncomingMessage, url: URL): boolean 
 /** Host half of the DSH Web plugin. The browser client is only a same-origin view over these routes. */
 type WorkbenchModel = {
   analyze(csv: string, businessGoal?: string): Promise<EnrichedCsvAnalysis>
+  generateDashboard(input: { csv: string; fileName: string; businessGoal: string }, signal?: AbortSignal, onTextDelta?: (delta: string) => void): Promise<{ html: string; title: string; summary: string }>
 }
 
 export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?: WorkbenchModel, uploadRoot = './dsh-workbench-library'): WebRoute[] {
@@ -84,19 +86,7 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
   const omd = new OpenMetadataSemanticHttpClient()
   const plans = new Map<string, { plan: DashboardPlan; csv: string }>()
   const planCsv = new Map<string, string>()
-  const runs = modelAnalyzer ? new DashboardAgentRunService({
-    async createPlan(input, signal, onTextDelta) {
-      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-      const analysis = await modelAnalyzer.analyze(input.csv, input.intent)
-      onTextDelta?.(analysis.ai.summary ?? '')
-      const plan = planFromAnalysis(analysis, { planId: randomUUID(), fileName: input.fileName, businessGoal: input.intent, source: snapshotCsvSource(input.csv) })
-      planCsv.set(plan.planId, input.csv)
-      return plan
-    },
-  }, plan => {
-    const csv = planCsv.get(plan.planId)
-    if (csv) plans.set(plan.planId, { plan, csv })
-  }) : undefined
+  const runs = modelAnalyzer ? new NativeDashboardRunService(modelAnalyzer, library, (assetId, revision) => `/dsh-workbench/assets/${assetId}/${revision}/dashboard.html`) : undefined
   const guarded = (handler: (request: IncomingMessage, response: ServerResponse, url: URL) => Promise<void> | void) => ({ kind: 'prefix' as const, path: '/dsh-workbench', handler: async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     const url = new URL(request.url ?? '/', 'http://127.0.0.1')
     if (!isTrustedBrowser(request) && !isWorkbenchPageNavigation(request, url)) return json(response, 403, { error: 'FORBIDDEN' })

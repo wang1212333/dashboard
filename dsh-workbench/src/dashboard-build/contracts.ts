@@ -2,7 +2,12 @@ import type { DashboardSpec } from '../dashboard-agent/contracts.js'
 
 export const REQUIRED_COLUMNS = ['date', 'category', 'planned', 'published', 'views', 'conversions', 'revenue'] as const
 export type RequiredColumn = typeof REQUIRED_COLUMNS[number]
-export type DashboardDataContract = 'content-ops-v1' | 'finance-pnl-v1' | 'supply-sales-v1' | 'sku-operations-v1'
+/**
+ * `agent-native/v1` is deliberately not a renderer contract.  It marks an
+ * artifact authored by the DSH model from the user's brief and reference
+ * materials, rather than one of the legacy deterministic dashboard templates.
+ */
+export type DashboardDataContract = 'content-ops-v1' | 'finance-pnl-v1' | 'supply-sales-v1' | 'sku-operations-v1' | 'agent-native/v1'
 
 export interface ContentRecord {
   date: string
@@ -89,7 +94,14 @@ export interface SpecDrivenDashboardModel {
   storylinePlan: DashboardSpec['storylinePlan']
 }
 
-export type DashboardModel = ContentDashboardModel | FinanceDashboardModel | SupplySalesDashboardModel | SpecDrivenDashboardModel
+/** Minimal audit projection for a free-form, model-authored dashboard. */
+export interface AgentNativeDashboardModel {
+  kind: 'agent-native/v1'
+  title: string
+  summary?: string
+}
+
+export type DashboardModel = ContentDashboardModel | FinanceDashboardModel | SupplySalesDashboardModel | SpecDrivenDashboardModel | AgentNativeDashboardModel
 
 export interface DashboardBuildResult<TModel extends DashboardModel = DashboardModel> {
   html: string

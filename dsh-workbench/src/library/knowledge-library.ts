@@ -1,4 +1,5 @@
 import type { BuildDashboardOptions } from '../dashboard-build/build.js'
+import type { AgentNativeDashboardInput } from '../dashboard-build/agent-native.js'
 import type { LibraryAsset, ReleasePointer, StoredDashboardRevision } from './contracts.js'
 
 export interface LifecycleCommand {
@@ -9,6 +10,8 @@ export interface LifecycleCommand {
 /** Storage-agnostic dashboard lifecycle API used by DSH tools. */
 export interface KnowledgeLibrary {
   buildDraft(csv: string, options: BuildDashboardOptions): Promise<StoredDashboardRevision>
+  /** Saves a complete dashboard authored by the DSH model without legacy workflow gates. */
+  buildAgentNativeDraft(input: AgentNativeDashboardInput): Promise<StoredDashboardRevision>
   preview(assetId: string, revision?: string): Promise<StoredDashboardRevision>
   release(assetId: string, revision?: string, command?: LifecycleCommand): Promise<ReleasePointer>
   rollback(assetId: string, targetRevision: string, command?: LifecycleCommand): Promise<ReleasePointer>

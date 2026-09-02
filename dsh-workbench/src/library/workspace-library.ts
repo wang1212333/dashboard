@@ -1,4 +1,5 @@
 import { buildDashboardFromCsv, type BuildDashboardOptions } from '../dashboard-build/build.js'
+import { buildAgentNativeDashboard, type AgentNativeDashboardInput } from '../dashboard-build/agent-native.js'
 import type { DashboardManifest } from '../dashboard-build/contracts.js'
 import type { LibraryAsset, ReleasePointer, RevisionRecord, StoredDashboardRevision } from './contracts.js'
 import type { KnowledgeLibrary, LifecycleCommand } from './knowledge-library.js'
@@ -47,6 +48,25 @@ export class WorkspaceKnowledgeLibrary implements KnowledgeLibrary {
       revision: { record: revision, artifacts },
       audit: this.audit('dashboard.draft.create', actor, asset.assetId, revision.revision),
     })
+    return { asset, revision, manifest: built.manifest, quality: built.quality, model: built.model, html: built.html }
+  }
+
+  async buildAgentNativeDraft(input: AgentNativeDashboardInput): Promise<StoredDashboardRevision> {
+    const actor = await this.authorize('dashboard.draft.create')
+    this.assertAssetId(input.assetId)
+    const previous = await this.metadata.getAsset(actor.workspaceId, input.assetId)
+    const previousManifest = previous ? await this.readManifest(actor.workspaceId, input.assetId, previous.asset.latestRevision) : undefined
+    const built = buildAgentNativeDashboard({ ...input, previousManifest })
+    const asset = this.toAsset(built.manifest, previous)
+    const revision: RevisionRecord = { assetId: asset.assetId, revision: built.manifest.revision, stage: 'draft', createdAt: built.manifest.updatedAt, updatedAt: built.manifest.updatedAt, quality: built.quality }
+    const artifacts = this.artifactKeys(actor.workspaceId, asset.assetId, revision.revision)
+    await Promise.all([
+      this.objects.putImmutable(artifacts.htmlKey, built.html, 'text/html; charset=utf-8'),
+      this.objects.putImmutable(artifacts.manifestKey, JSON.stringify(built.manifest), 'application/json'),
+      this.objects.putImmutable(artifacts.modelKey, JSON.stringify(built.model), 'application/json'),
+      this.objects.putImmutable(artifacts.qualityKey, JSON.stringify(built.quality), 'application/json'),
+    ])
+    await this.metadata.createDraft({ workspaceId: actor.workspaceId, asset, revision: { record: revision, artifacts }, audit: this.audit('dashboard.draft.create', actor, asset.assetId, revision.revision) })
     return { asset, revision, manifest: built.manifest, quality: built.quality, model: built.model, html: built.html }
   }
 
