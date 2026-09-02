@@ -1,0 +1,525 @@
+{
+  "repository": "voltagent/awesome-design-md",
+  "branch": "main",
+  "syncedAt": "2026-08-28T06:15:41.285Z",
+  "templates": [
+    {
+      "id": "airbnb",
+      "name": "Airbnb",
+      "sourcePath": "design-md/airbnb/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/airbnb/DESIGN.md",
+      "contentSha": "088254920b745ed12c9ad14429f3cd96128ab9b2"
+    },
+    {
+      "id": "airtable",
+      "name": "Airtable",
+      "sourcePath": "design-md/airtable/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/airtable/DESIGN.md",
+      "contentSha": "d885f4984c2ca5c2840a62e2d828167957c02385"
+    },
+    {
+      "id": "apple",
+      "name": "Apple",
+      "sourcePath": "design-md/apple/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/apple/DESIGN.md",
+      "contentSha": "0d37e1e5f6b621ccbdc666f6d9c82f2ada26208b"
+    },
+    {
+      "id": "binance",
+      "name": "Binance",
+      "sourcePath": "design-md/binance/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/binance/DESIGN.md",
+      "contentSha": "27ec482198f450621b747a007e3135656b95f70e"
+    },
+    {
+      "id": "bmw",
+      "name": "Bmw",
+      "sourcePath": "design-md/bmw/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/bmw/DESIGN.md",
+      "contentSha": "8cb0be59fa1d2e839d5eddec3a4876f326f176bc"
+    },
+    {
+      "id": "bmw-m",
+      "name": "Bmw M",
+      "sourcePath": "design-md/bmw-m/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/bmw-m/DESIGN.md",
+      "contentSha": "fb1cd84a66900406038017902fb42a0e3e67122d"
+    },
+    {
+      "id": "bugatti",
+      "name": "Bugatti",
+      "sourcePath": "design-md/bugatti/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/bugatti/DESIGN.md",
+      "contentSha": "c6067fed091f2edfc787fe52aa8f61bd7c2a672f"
+    },
+    {
+      "id": "cal",
+      "name": "Cal",
+      "sourcePath": "design-md/cal/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/cal/DESIGN.md",
+      "contentSha": "1f8525c5bb7510000a1a986ae7be4c413054adb3"
+    },
+    {
+      "id": "claude",
+      "name": "Claude",
+      "sourcePath": "design-md/claude/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/claude/DESIGN.md",
+      "contentSha": "f92dc464d9bfdb6c6306f45a9ce406c6fca17432"
+    },
+    {
+      "id": "clay",
+      "name": "Clay",
+      "sourcePath": "design-md/clay/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/clay/DESIGN.md",
+      "contentSha": "4934340cffe12633bc7dd7800fb19237c8768c3f"
+    },
+    {
+      "id": "clickhouse",
+      "name": "Clickhouse",
+      "sourcePath": "design-md/clickhouse/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/clickhouse/DESIGN.md",
+      "contentSha": "f9b61f0a2be93c3e0b396a9a1b4ae1df02791cf9"
+    },
+    {
+      "id": "cohere",
+      "name": "Cohere",
+      "sourcePath": "design-md/cohere/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/cohere/DESIGN.md",
+      "contentSha": "cc8bdf0482e7609c93a35d9b4526293d575dde8d"
+    },
+    {
+      "id": "coinbase",
+      "name": "Coinbase",
+      "sourcePath": "design-md/coinbase/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/coinbase/DESIGN.md",
+      "contentSha": "02bd7262fcca3db250d109a69a641ce677a7d784"
+    },
+    {
+      "id": "composio",
+      "name": "Composio",
+      "sourcePath": "design-md/composio/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/composio/DESIGN.md",
+      "contentSha": "fe8d23a93af8c927b49c2bf7e4c05e9378c33a4c"
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "sourcePath": "design-md/cursor/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/cursor/DESIGN.md",
+      "contentSha": "f457973ed6dfb504a2b42a02845734f52bc399a8"
+    },
+    {
+      "id": "dell-1996",
+      "name": "Dell 1996",
+      "sourcePath": "design-md/dell-1996/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/dell-1996/DESIGN.md",
+      "contentSha": "09285a8a2fcb13c2e452a01164682e84f6fafcba"
+    },
+    {
+      "id": "elevenlabs",
+      "name": "Elevenlabs",
+      "sourcePath": "design-md/elevenlabs/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/elevenlabs/DESIGN.md",
+      "contentSha": "4d13eb977b5fb8f596b69a1ecc8f6de42c1a54a9"
+    },
+    {
+      "id": "expo",
+      "name": "Expo",
+      "sourcePath": "design-md/expo/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/expo/DESIGN.md",
+      "contentSha": "7d25b5dc1d502f008e7f61f55dbd644082c07b6d"
+    },
+    {
+      "id": "ferrari",
+      "name": "Ferrari",
+      "sourcePath": "design-md/ferrari/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/ferrari/DESIGN.md",
+      "contentSha": "3c6b43ab529cbddae51f09a2a659d123baf4a1f0"
+    },
+    {
+      "id": "figma",
+      "name": "Figma",
+      "sourcePath": "design-md/figma/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/figma/DESIGN.md",
+      "contentSha": "75e79fea9aadc35d4c9a0c75db631be927525f08"
+    },
+    {
+      "id": "framer",
+      "name": "Framer",
+      "sourcePath": "design-md/framer/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/framer/DESIGN.md",
+      "contentSha": "8351555233ee9379c47bfb57c557e64f0b6c7488"
+    },
+    {
+      "id": "hashicorp",
+      "name": "Hashicorp",
+      "sourcePath": "design-md/hashicorp/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/hashicorp/DESIGN.md",
+      "contentSha": "4c27877aad49803d04596d90fd7e42a9e05030cd"
+    },
+    {
+      "id": "hp",
+      "name": "Hp",
+      "sourcePath": "design-md/hp/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/hp/DESIGN.md",
+      "contentSha": "fa0167583bb3df459128257a26c1794827196de6"
+    },
+    {
+      "id": "ibm",
+      "name": "Ibm",
+      "sourcePath": "design-md/ibm/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/ibm/DESIGN.md",
+      "contentSha": "dbef1c5b20357a8953e6832e5d383a866a66f11a"
+    },
+    {
+      "id": "intercom",
+      "name": "Intercom",
+      "sourcePath": "design-md/intercom/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/intercom/DESIGN.md",
+      "contentSha": "dd01090d095d79cfec81100e3040678e2047531b"
+    },
+    {
+      "id": "kraken",
+      "name": "Kraken",
+      "sourcePath": "design-md/kraken/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/kraken/DESIGN.md",
+      "contentSha": "972e541fcc56784ce6a69558652a47338adfafb7"
+    },
+    {
+      "id": "lamborghini",
+      "name": "Lamborghini",
+      "sourcePath": "design-md/lamborghini/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/lamborghini/DESIGN.md",
+      "contentSha": "aa9b12f1bac4c041525d704d00e5abb059cdd8dd"
+    },
+    {
+      "id": "linear.app",
+      "name": "Linear",
+      "sourcePath": "design-md/linear.app/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/linear.app/DESIGN.md",
+      "contentSha": "88bcd11faa4f050982c7e84ca70bdf43d660ed6a"
+    },
+    {
+      "id": "lovable",
+      "name": "Lovable",
+      "sourcePath": "design-md/lovable/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/lovable/DESIGN.md",
+      "contentSha": "5a2821c9c503e8e78c99609a44da7cb41b5bba53"
+    },
+    {
+      "id": "mastercard",
+      "name": "Mastercard",
+      "sourcePath": "design-md/mastercard/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/mastercard/DESIGN.md",
+      "contentSha": "8087e66a902ea478f73cf9902a258a639b3311a2"
+    },
+    {
+      "id": "meta",
+      "name": "Meta",
+      "sourcePath": "design-md/meta/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/meta/DESIGN.md",
+      "contentSha": "61be6ca195040b5dab098c4aefaae6adedbee7e4"
+    },
+    {
+      "id": "minimax",
+      "name": "Minimax",
+      "sourcePath": "design-md/minimax/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/minimax/DESIGN.md",
+      "contentSha": "6f5a190cdcad424975a60944743e9a0f5f3adf2f"
+    },
+    {
+      "id": "mintlify",
+      "name": "Mintlify",
+      "sourcePath": "design-md/mintlify/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/mintlify/DESIGN.md",
+      "contentSha": "dbe946bcb53adba92dbc75b995497c18189b6f41"
+    },
+    {
+      "id": "miro",
+      "name": "Miro",
+      "sourcePath": "design-md/miro/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/miro/DESIGN.md",
+      "contentSha": "98fd9a4423e4d58de0d4395f897c059d10e52740"
+    },
+    {
+      "id": "mistral.ai",
+      "name": "Mistral Ai",
+      "sourcePath": "design-md/mistral.ai/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/mistral.ai/DESIGN.md",
+      "contentSha": "76a451b97a263d1061f97f84d52a2c99ff6dc9b4"
+    },
+    {
+      "id": "mongodb",
+      "name": "Mongodb",
+      "sourcePath": "design-md/mongodb/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/mongodb/DESIGN.md",
+      "contentSha": "609b0478a8f5dc05ee012bf8118179c63661816a"
+    },
+    {
+      "id": "nike",
+      "name": "Nike",
+      "sourcePath": "design-md/nike/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/nike/DESIGN.md",
+      "contentSha": "c82517b67c20b9f1b8b189615c934899f28cd1f8"
+    },
+    {
+      "id": "nintendo-2001",
+      "name": "Nintendo 2001",
+      "sourcePath": "design-md/nintendo-2001/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/nintendo-2001/DESIGN.md",
+      "contentSha": "3dbe9e8707e3c36b6643e0e23e16fa2c5b309cc3"
+    },
+    {
+      "id": "notion",
+      "name": "Notion",
+      "sourcePath": "design-md/notion/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/notion/DESIGN.md",
+      "contentSha": "7d306bd2713d24a35967310102d43e3585f0536a"
+    },
+    {
+      "id": "nvidia",
+      "name": "Nvidia",
+      "sourcePath": "design-md/nvidia/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/nvidia/DESIGN.md",
+      "contentSha": "318bbc3a204e2ea88b4c46d0791319f37f55d74a"
+    },
+    {
+      "id": "ollama",
+      "name": "Ollama",
+      "sourcePath": "design-md/ollama/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/ollama/DESIGN.md",
+      "contentSha": "c913335d19f76d53e26a46fccb8eb998517b60ed"
+    },
+    {
+      "id": "opencode.ai",
+      "name": "Opencode Ai",
+      "sourcePath": "design-md/opencode.ai/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/opencode.ai/DESIGN.md",
+      "contentSha": "47c1c5443f3c61c682c1908334047a4c8c2a3de2"
+    },
+    {
+      "id": "pinterest",
+      "name": "Pinterest",
+      "sourcePath": "design-md/pinterest/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/pinterest/DESIGN.md",
+      "contentSha": "0c8e3f1f300381182340d757dc74f6466ce9f581"
+    },
+    {
+      "id": "playstation",
+      "name": "Playstation",
+      "sourcePath": "design-md/playstation/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/playstation/DESIGN.md",
+      "contentSha": "247ec9c13a37f137cfe606496211094a6b37f1ae"
+    },
+    {
+      "id": "posthog",
+      "name": "Posthog",
+      "sourcePath": "design-md/posthog/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/posthog/DESIGN.md",
+      "contentSha": "4aac00897402ce1a79bfd209b79c9a0de078e485"
+    },
+    {
+      "id": "raycast",
+      "name": "Raycast",
+      "sourcePath": "design-md/raycast/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/raycast/DESIGN.md",
+      "contentSha": "fa7a74cf19918d7acfada8282a02619c8ff80829"
+    },
+    {
+      "id": "renault",
+      "name": "Renault",
+      "sourcePath": "design-md/renault/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/renault/DESIGN.md",
+      "contentSha": "19f105b1197f739da3c247235572aff7c3cab073"
+    },
+    {
+      "id": "replicate",
+      "name": "Replicate",
+      "sourcePath": "design-md/replicate/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/replicate/DESIGN.md",
+      "contentSha": "affcf387b4763916e70b07bcaead8e4ad01719ef"
+    },
+    {
+      "id": "resend",
+      "name": "Resend",
+      "sourcePath": "design-md/resend/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/resend/DESIGN.md",
+      "contentSha": "de2feada60fb5a6c9c70cd218e9c74e1d5affea5"
+    },
+    {
+      "id": "revolut",
+      "name": "Revolut",
+      "sourcePath": "design-md/revolut/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/revolut/DESIGN.md",
+      "contentSha": "23b014f45600f1d852dc1c8bbca5c144255ddde4"
+    },
+    {
+      "id": "runwayml",
+      "name": "Runwayml",
+      "sourcePath": "design-md/runwayml/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/runwayml/DESIGN.md",
+      "contentSha": "7802bcb217b369fc5bd12fb1f6be35f24eadc871"
+    },
+    {
+      "id": "sanity",
+      "name": "Sanity",
+      "sourcePath": "design-md/sanity/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/sanity/DESIGN.md",
+      "contentSha": "b38ba199d162acfecd2d16178828a21fea3c6583"
+    },
+    {
+      "id": "sentry",
+      "name": "Sentry",
+      "sourcePath": "design-md/sentry/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/sentry/DESIGN.md",
+      "contentSha": "8fb6eb8a48882679216860bb8a01879d7036bffe"
+    },
+    {
+      "id": "shopify",
+      "name": "Shopify",
+      "sourcePath": "design-md/shopify/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/shopify/DESIGN.md",
+      "contentSha": "17f043981f6577a174237b219b9f6f2688139180"
+    },
+    {
+      "id": "slack",
+      "name": "Slack",
+      "sourcePath": "design-md/slack/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/slack/DESIGN.md",
+      "contentSha": "51f1850cbdd79baf8103cf9714be318becbaf11a"
+    },
+    {
+      "id": "spacex",
+      "name": "Spacex",
+      "sourcePath": "design-md/spacex/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/spacex/DESIGN.md",
+      "contentSha": "afdcba91076dde643b20c596a6fd790a180a3f1d"
+    },
+    {
+      "id": "spotify",
+      "name": "Spotify",
+      "sourcePath": "design-md/spotify/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/spotify/DESIGN.md",
+      "contentSha": "66bb4af6cbde6b631792de8712f2dd92a06e076e"
+    },
+    {
+      "id": "starbucks",
+      "name": "Starbucks",
+      "sourcePath": "design-md/starbucks/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/starbucks/DESIGN.md",
+      "contentSha": "dcc5b5b9d57c84369a44dc2b19d3bc98ae329ad5"
+    },
+    {
+      "id": "stripe",
+      "name": "Stripe",
+      "sourcePath": "design-md/stripe/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/stripe/DESIGN.md",
+      "contentSha": "589bd23baeb1344444f087043c060afd6239371f"
+    },
+    {
+      "id": "supabase",
+      "name": "Supabase",
+      "sourcePath": "design-md/supabase/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/supabase/DESIGN.md",
+      "contentSha": "ef9f0a27f61aeff93f3a2fbe5430f3d33e37b4c1"
+    },
+    {
+      "id": "superhuman",
+      "name": "Superhuman",
+      "sourcePath": "design-md/superhuman/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/superhuman/DESIGN.md",
+      "contentSha": "0d4433aaa8d59fbd97d01721d95392fb02d1ca82"
+    },
+    {
+      "id": "tesla",
+      "name": "Tesla",
+      "sourcePath": "design-md/tesla/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/tesla/DESIGN.md",
+      "contentSha": "6e8e8b63e49d4a2b2759f504b3f49e2905d3255e"
+    },
+    {
+      "id": "theverge",
+      "name": "Theverge",
+      "sourcePath": "design-md/theverge/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/theverge/DESIGN.md",
+      "contentSha": "545551c00fe92f89507287e3ec89c2b5c49c4015"
+    },
+    {
+      "id": "together.ai",
+      "name": "Together Ai",
+      "sourcePath": "design-md/together.ai/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/together.ai/DESIGN.md",
+      "contentSha": "33d8b717bcdad344f7f7a804128c748a1d1374e0"
+    },
+    {
+      "id": "uber",
+      "name": "Uber",
+      "sourcePath": "design-md/uber/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/uber/DESIGN.md",
+      "contentSha": "212aa14e4b0fe9612557098d7cee81d2b48bfd67"
+    },
+    {
+      "id": "vercel",
+      "name": "Vercel",
+      "sourcePath": "design-md/vercel/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/vercel/DESIGN.md",
+      "contentSha": "987140b5394c2a4ada4ef324f2d19ef66caf4338"
+    },
+    {
+      "id": "vodafone",
+      "name": "Vodafone",
+      "sourcePath": "design-md/vodafone/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/vodafone/DESIGN.md",
+      "contentSha": "f64dbd3297a9b6a97e8f8aa5fb69874ff23e9bd0"
+    },
+    {
+      "id": "voltagent",
+      "name": "Voltagent",
+      "sourcePath": "design-md/voltagent/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/voltagent/DESIGN.md",
+      "contentSha": "7d08c78cd976f99697ba30d33eb8fd5aa089fed0"
+    },
+    {
+      "id": "warp",
+      "name": "Warp",
+      "sourcePath": "design-md/warp/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/warp/DESIGN.md",
+      "contentSha": "e32923ec08b746463d033342a33252b866f35319"
+    },
+    {
+      "id": "webflow",
+      "name": "Webflow",
+      "sourcePath": "design-md/webflow/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/webflow/DESIGN.md",
+      "contentSha": "d42e91702260443e7771dd3ad86badecc68ba487"
+    },
+    {
+      "id": "wired",
+      "name": "Wired",
+      "sourcePath": "design-md/wired/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/wired/DESIGN.md",
+      "contentSha": "913d4399fafc6c3b9d681fbeeb44dfeee444d405"
+    },
+    {
+      "id": "wise",
+      "name": "Wise",
+      "sourcePath": "design-md/wise/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/wise/DESIGN.md",
+      "contentSha": "79b01b7a6311bb9fdfc0b013b8b3020e72e3eb6f"
+    },
+    {
+      "id": "x.ai",
+      "name": "X Ai",
+      "sourcePath": "design-md/x.ai/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/x.ai/DESIGN.md",
+      "contentSha": "5e0eb5ef304728e3f402e2519c18d5d8fd4c1d8c"
+    },
+    {
+      "id": "zapier",
+      "name": "Zapier",
+      "sourcePath": "design-md/zapier/DESIGN.md",
+      "sourceUrl": "https://raw.githubusercontent.com/voltagent/awesome-design-md/main/design-md/zapier/DESIGN.md",
+      "contentSha": "7a2b82bfec8bad3efa49200762879f497d224054"
+    }
+  ]
+}

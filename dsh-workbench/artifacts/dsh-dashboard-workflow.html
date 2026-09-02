@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DSH 看板搭建当前工作流</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root{--canvas:#f4f6fa;--surface:#fff;--ink:#172033;--muted:#667085;--line:#dfe4ed;--brand:#3155c6;--brand-tint:#edf2ff;--warn:#a36106;--warn-tint:#fff9eb;--good:#087e65;--soft:#758198}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--canvas);color:var(--ink);font-family:Geist,"Microsoft YaHei",Arial,sans-serif}
+    main{width:min(1600px,100%);margin:0 auto;padding:48px}
+    .eyebrow{margin:0 0 12px;color:var(--brand);font-family:"Geist Mono",monospace;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase}
+    h1{margin:0;font-size:40px;letter-spacing:-.04em;line-height:1.12}
+    .lead{max-width:1040px;margin:16px 0 32px;color:var(--muted);font-size:16px;line-height:1.6}
+    .diagram{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+    svg{display:block;min-width:1400px;width:100%;height:auto}
+    .cards{display:grid;grid-template-columns:1.2fr 1fr .9fr;gap:16px;margin-top:24px}
+    .card{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:20px}
+    .card h2{margin:0 0 12px;font-size:16px}
+    .card p,.card li{margin:0;color:var(--muted);font-size:14px;line-height:1.6}
+    .card ul{margin:0;padding-left:20px}
+    .card li+li{margin-top:6px}
+    .tag{display:inline-block;margin-bottom:8px;padding:4px 8px;border:1px solid var(--line);border-radius:4px;color:var(--soft);font-family:"Geist Mono",monospace;font-size:12px;letter-spacing:.04em}
+    footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--line);color:var(--soft);font-family:"Geist Mono",monospace;font-size:12px}
+    .node-name{fill:var(--ink);font-size:16px;font-weight:600;font-family:Geist,"Microsoft YaHei",Arial,sans-serif;text-anchor:middle}
+    .node-sub{fill:var(--muted);font-size:12px;font-family:"Geist Mono",monospace;text-anchor:middle}
+    .node-tag{fill:var(--soft);font-size:8px;font-family:"Geist Mono",monospace;letter-spacing:.12em;text-anchor:middle}
+    .arrow-label{fill:var(--soft);font-size:12px;font-family:"Geist Mono",monospace;text-anchor:middle}
+    .callout{fill:var(--warn);font-size:16px;font-family:Geist,"Microsoft YaHei",Arial,sans-serif;font-weight:600}
+    .callout-sub{fill:var(--muted);font-size:12px;font-family:Geist,"Microsoft YaHei",Arial,sans-serif}
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">DSH WORKBENCH · CURRENT RUNTIME FLOW</p>
+    <h1>看板搭建工作流：默认生成并直接返回 HTML</h1>
+    <p class="lead">这张图以当前代码的实际行为为准：常规路径保留方案确认和治理评估；进入构建工具后，缺少确认、语义或有效治理输入时会记录警告，并从 CSV 自动派生可构建的 Draft HTML。</p>
+
+    <section class="diagram" aria-label="DSH 看板搭建工作流图">
+      <svg viewBox="0 0 1400 1360" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="dsh-workflow-title dsh-workflow-desc">
+        <title id="dsh-workflow-title">DSH 看板搭建当前工作流</title>
+        <desc id="dsh-workflow-desc">从提交 CSV 和目标开始，经数据画像、可选语义核验、方案和按需确认后，直接生成并返回看板 Draft HTML；缺少确认、语义或有效治理输入时，构建工具会自动派生草稿规格并继续生成。</desc>
+        <defs>
+          <marker id="dsh-workflow-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#667085"/></marker>
+          <marker id="dsh-workflow-arrow-brand" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#3155c6"/></marker>
+          <marker id="dsh-workflow-arrow-warn" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#a36106"/></marker>
+        </defs>
+        <rect width="1400" height="1360" fill="#f4f6fa"/>
+
+        <!-- connectors, painted before nodes -->
+        <path d="M700 160 V224" fill="none" stroke="#667085" stroke-width="2" marker-end="url(#dsh-workflow-arrow)"/>
+        <path d="M700 312 V344" fill="none" stroke="#667085" stroke-width="2" marker-end="url(#dsh-workflow-arrow)"/>
+        <path d="M936 408 H1080" fill="none" stroke="#3155c6" stroke-width="2" marker-end="url(#dsh-workflow-arrow-brand)"/>
+        <path d="M800 472 V520" fill="none" stroke="#667085" stroke-width="2" marker-end="url(#dsh-workflow-arrow)"/>
+        <path d="M1240 448 V520 H812" fill="none" stroke="#3155c6" stroke-width="2" marker-end="url(#dsh-workflow-arrow-brand)"/>
+        <path d="M800 528 V560" fill="none" stroke="#667085" stroke-width="2" marker-end="url(#dsh-workflow-arrow)"/>
+        <path d="M800 656 V688" fill="none" stroke="#667085" stroke-width="2" marker-end="url(#dsh-workflow-arrow)"/>
+        <path d="M936 744 H1080" fill="none" stroke="#3155c6" stroke-width="2" marker-end="url(#dsh-workflow-arrow-brand)"/>
+        <path d="M800 800 V880" fill="none" stroke="#a36106" stroke-width="2" stroke-dasharray="8 8" marker-end="url(#dsh-workflow-arrow-warn)"/>
+        <path d="M1240 784 V880 H812" fill="none" stroke="#3155c6" stroke-width="2" marker-end="url(#dsh-workflow-arrow-brand)"/>
+        <path d="M800 888 V936" fill="none" stroke="#3155c6" stroke-width="2" marker-end="url(#dsh-workflow-arrow-brand)"/>
+        <path d="M800 1064 V1128" fill="none" stroke="#3155c6" stroke-width="2" marker-end="url(#dsh-workflow-arrow-brand)"/>
+
+        <!-- arrow labels with opaque masks -->
+        <rect x="968" y="384" width="80" height="16" rx="4" fill="#f4f6fa"/>
+        <text x="1008" y="396" class="arrow-label">可用</text>
+        <rect x="820" y="484" width="96" height="16" rx="4" fill="#f4f6fa"/>
+        <text x="868" y="496" class="arrow-label">不可用 / 延后</text>
+        <rect x="968" y="720" width="80" height="16" rx="4" fill="#f4f6fa"/>
+        <text x="1008" y="732" class="arrow-label">仅剩待确认项</text>
+        <rect x="820" y="820" width="136" height="16" rx="4" fill="#f4f6fa"/>
+        <text x="888" y="832" class="arrow-label">跳过确认或规格无效</text>
+
+        <!-- input/end ovals -->
+        <rect x="500" y="80" width="600" height="80" rx="40" fill="#edf2ff" stroke="#3155c6" stroke-width="2"/>
+        <text x="800" y="116" class="node-name">提交 CSV 与看板目标</text>
+        <text x="800" y="140" class="node-sub">业务问题 · 受众 · 设计风格（可选）</text>
+
+        <!-- profile -->
+        <rect x="500" y="224" width="600" height="88" rx="8" fill="#fff" stroke="#172033" stroke-width="2"/>
+        <rect x="516" y="240" width="72" height="16" rx="4" fill="#f4f6fa" stroke="#dfe4ed"/>
+        <text x="552" y="252" class="node-tag">READ</text>
+        <text x="800" y="268" class="node-name">数据画像与模板候选</text>
+        <text x="800" y="292" class="node-sub">字段类型 · 粒度 · 质量风险 · 映射建议</text>
+
+        <!-- semantic decision -->
+        <polygon points="800,344 936,408 800,472 664,408" fill="#fff" stroke="#172033" stroke-width="2"/>
+        <text x="800" y="404" class="node-name">可进行 OMD 语义核验？</text>
+        <text x="800" y="428" class="node-sub">可选增强，不是 Draft 前置条件</text>
+
+        <!-- semantic context -->
+        <rect x="1080" y="368" width="320" height="80" rx="8" fill="#edf2ff" stroke="#3155c6" stroke-width="2"/>
+        <rect x="1096" y="384" width="64" height="16" rx="4" fill="#fff" stroke="#dfe4ed"/>
+        <text x="1128" y="396" class="node-tag">OMD</text>
+        <text x="1240" y="408" class="node-name">语义证据核验</text>
+        <text x="1240" y="432" class="node-sub">验证字段、指标、口径与候选唯一性</text>
+
+        <!-- merge dots -->
+        <circle cx="800" cy="524" r="8" fill="#172033"/>
+        <circle cx="800" cy="884" r="8" fill="#172033"/>
+
+        <!-- plan -->
+        <rect x="460" y="560" width="680" height="96" rx="8" fill="#fff" stroke="#172033" stroke-width="2"/>
+        <rect x="476" y="576" width="72" height="16" rx="4" fill="#f4f6fa" stroke="#dfe4ed"/>
+        <text x="512" y="588" class="node-tag">PLAN</text>
+        <text x="800" y="608" class="node-name">DashboardPlan：方案、故事线与视觉合同</text>
+        <text x="800" y="632" class="node-sub">证据状态：omd-verified / data-validated / needs-review</text>
+
+        <!-- confirmation decision -->
+        <polygon points="800,688 936,744 800,800 664,744" fill="#fff" stroke="#172033" stroke-width="2"/>
+        <text x="800" y="740" class="node-name">是否存在 needs-review？</text>
+        <text x="800" y="764" class="node-sub">只确认无法由数据或 OMD 消除的歧义</text>
+
+        <!-- confirmed spec -->
+        <rect x="1080" y="704" width="320" height="80" rx="8" fill="#edf2ff" stroke="#3155c6" stroke-width="2"/>
+        <rect x="1096" y="720" width="72" height="16" rx="4" fill="#fff" stroke="#dfe4ed"/>
+        <text x="1132" y="732" class="node-tag">SPEC</text>
+        <text x="1240" y="744" class="node-name">确认 DashboardSpec</text>
+        <text x="1240" y="768" class="node-sub">业务目标、映射、指标与故事线</text>
+
+        <!-- build -->
+        <rect x="420" y="936" width="760" height="128" rx="8" fill="#edf2ff" stroke="#3155c6" stroke-width="2"/>
+        <rect x="436" y="952" width="112" height="16" rx="4" fill="#fff" stroke="#dfe4ed"/>
+        <text x="492" y="964" class="node-tag">EXECUTE</text>
+        <text x="800" y="992" class="node-name">workbench_build_dashboard：生成并校验 Draft</text>
+        <text x="800" y="1016" class="node-sub">规格有效：按确认规格构建；规格缺失或无效：从 CSV 派生 Draft-first Spec</text>
+        <text x="800" y="1040" class="node-sub">治理或语义缺失：写入 deferred warning，继续生成，不发布</text>
+
+        <!-- output -->
+        <rect x="420" y="1128" width="760" height="88" rx="44" fill="#fff" stroke="#172033" stroke-width="2"/>
+        <text x="800" y="1168" class="node-name">返回 Draft HTML、质量报告与 deferred warnings</text>
+        <text x="800" y="1192" class="node-sub">用户拿到可用看板后，再按需发起后续迭代</text>
+
+        <!-- annotation -->
+        <rect x="72" y="856" width="284" height="120" rx="8" fill="#fff9eb" stroke="#a36106" stroke-width="2" stroke-dasharray="8 8"/>
+        <text x="96" y="888" class="callout">当前需要解决的错位</text>
+        <text x="96" y="916" class="callout-sub">前端提示仍偏向“先确认再 Draft”；</text>
+        <text x="96" y="940" class="callout-sub">后端已具备 Draft-first 兜底能力。</text>
+        <text x="96" y="964" class="callout-sub">应把默认交互改为：直接生成，再迭代。</text>
+
+        <!-- legend -->
+        <line x1="64" y1="1272" x2="1336" y2="1272" stroke="#dfe4ed" stroke-width="2"/>
+        <rect x="64" y="1296" width="16" height="16" rx="4" fill="#edf2ff" stroke="#3155c6"/>
+        <text x="92" y="1308" class="node-sub" text-anchor="start">系统自动处理 / 可选增强</text>
+        <rect x="396" y="1296" width="16" height="16" rx="4" fill="#fff" stroke="#172033"/>
+        <text x="424" y="1308" class="node-sub" text-anchor="start">分析、方案或人工控制点</text>
+        <line x1="776" y1="1304" x2="824" y2="1304" stroke="#a36106" stroke-width="2" stroke-dasharray="8 8"/>
+        <text x="836" y="1308" class="node-sub" text-anchor="start">降级路径：记录警告后继续</text>
+      </svg>
+    </section>
+
+    <section class="cards" aria-label="流程解读">
+      <article class="card">
+        <span class="tag">用户可感知的主链路</span>
+        <h2>先理解数据，再产生可用初稿</h2>
+        <p>CSV 画像决定模板、字段映射和质量风险。OMD 用于提高语义可信度，但数据本身足以消除歧义时不应成为阻断条件。</p>
+      </article>
+      <article class="card">
+        <span class="tag">确认应该最小化</span>
+        <h2>只让用户决策真正不确定的事</h2>
+        <p>已被 OMD 或数据验证的字段和指标自动采用；仅映射冲突、同等候选、口径或阈值不明确时，才要求确认。</p>
+      </article>
+      <article class="card">
+        <span class="tag">当前改造重点</span>
+        <h2>把 Draft-first 从后端落实到交互</h2>
+        <p>构建工具已能兜底生成 Draft。下一步应让前端默认采用 universal-default 风格、直接生成初稿，并将确认放到迭代阶段。</p>
+      </article>
+    </section>
+    <footer>依据：src/client.ts、src/tools.ts、src/dashboard-agent/workflow.ts · 生成日期：2026-09-01</footer>
+  </main>
+</body>
+</html>

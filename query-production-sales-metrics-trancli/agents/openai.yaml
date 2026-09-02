@@ -1,0 +1,7 @@
+interface:
+  display_name: "产销指标 trancli 查询"
+  short_description: "在用户本机通过 trancli 的 prod 环境校验 DDL 并查询产销指标数据。"
+  default_prompt: "使用 $query-production-sales-metrics-trancli 在本机非沙盒环境通过 trancli 的 prod 配置查询产销指标数据。"
+
+policy:
+  allow_implicit_invocation: true

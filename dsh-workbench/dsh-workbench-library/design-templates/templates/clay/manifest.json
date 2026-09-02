@@ -1,0 +1,17 @@
+{
+  "id": "clay",
+  "name": "Clay-design-analysis",
+  "description": "A vibrant claymation-meets-data interface for Clay.com (GTM data-orchestration platform). Anchors on white canvas with dark-navy primary CTAs, custom rounded display type, and saturated single-color feature cards — hot pink, deep teal, lavender, peach, ochre — that punctuate long-scroll explainer pages. Brand voltage comes from 3D-rendered claymation illustrations (mountains, characters, mascots) used as full-bleed hero artifacts and the bright multi-color card surfaces showing product UI fragments.",
+  "version": "alpha",
+  "theme": "light",
+  "tags": [],
+  "primaryColor": "#0a0a0a",
+  "layout": "editorial",
+  "category": "dashboard",
+  "previewUrl": "/api/dsh-workbench/design-templates/clay/preview",
+  "status": "ready",
+  "rendererVersion": "template-cover-renderer-v2",
+  "buildHash": "7bb9230b93f36ee485779f404e6784607de170efadb6f3dc8e351f735bd11585",
+  "updatedAt": "2026-08-31T02:52:37.723Z",
+  "coverUrl": "/api/dsh-workbench/design-templates/clay/cover.webp"
+}

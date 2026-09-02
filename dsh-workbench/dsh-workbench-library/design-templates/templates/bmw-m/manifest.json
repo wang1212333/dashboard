@@ -1,0 +1,17 @@
+{
+  "id": "bmw-m",
+  "name": "BMW-M-design-analysis",
+  "description": "A motorsport-engineering interface anchored on a near-black canvas with white BMW Type Next Latin display headlines in confident UPPERCASE. The brand carries no decorative voltage — its energy comes from full-bleed automotive photography (cars on tracks, driver-cockpit shots, carbon-fiber detail) and the iconic M tricolor stripe (light blue → dark blue → red) used sparingly as a brand signature on logos, dividers, and motorsport chrome. Type stays light to medium weight to feel European-engineered, never American-bombastic.",
+  "version": "alpha",
+  "theme": "light",
+  "tags": [],
+  "primaryColor": "#ffffff",
+  "layout": "editorial",
+  "category": "dashboard",
+  "previewUrl": "/api/dsh-workbench/design-templates/bmw-m/preview",
+  "status": "ready",
+  "rendererVersion": "template-cover-renderer-v2",
+  "buildHash": "e8e7a9873259b77600627880c4bfdf3256cfccdc2312adb34fdf07af7641896a",
+  "updatedAt": "2026-08-31T02:52:27.894Z",
+  "coverUrl": "/api/dsh-workbench/design-templates/bmw-m/cover.webp"
+}

@@ -1,0 +1,41 @@
+# Copy these rows into the target DSH Profile's cordis.patch.yml, then remove
+# `disabled: true` only after the corresponding endpoint and credentials exist.
+# DSH loads one @deepseek-ai/dsh-mcp-client instance per MCP server.
+
+- insert:
+    - id: dsh-workbench-metadata-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      disabled: true
+      config:
+        serverName: workbench_metadata
+        transport: streamable-http
+        url: !!js process.env.WORKBENCH_METADATA_MCP_URL
+        headers:
+          Authorization: !!js '`Bearer ${process.env.WORKBENCH_METADATA_MCP_TOKEN}`'
+
+    - id: dsh-workbench-data-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      disabled: true
+      config:
+        serverName: workbench_data
+        transport: streamable-http
+        url: !!js process.env.WORKBENCH_DATA_MCP_URL
+        headers:
+          Authorization: !!js '`Bearer ${process.env.WORKBENCH_DATA_MCP_TOKEN}`'
+
+    # OpenMetadata supplies business definitions, glossary terms, tags,
+    # ownership and lineage. This row is already bundled by dsh-workbench;
+    # retain it only when configuring the connector outside that bundle.
+    # Use a least-privilege read-only token and set it only in the host
+    # environment, never in this file or an Agent prompt.
+    - id: dsh-workbench-openmetadata-semantic-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      disabled: !!js '!process.env.OPENMETADATA_MCP_TOKEN'
+      config:
+        serverName: openmetadata_semantic
+        transport: streamable-http
+        url: !!js "process.env.OPENMETADATA_MCP_URL || 'https://openmetadata.transsion.com/mcp'"
+        headers:
+          Authorization: !!js '`Bearer ${process.env.OPENMETADATA_MCP_TOKEN}`'
+        failOnStartupError: true
+        toolCallTimeoutMs: 60000

@@ -1,0 +1,17 @@
+{
+  "id": "figma",
+  "name": "Figma-design-analysis",
+  "description": "A confident black-and-white editorial frame interrupted by oversized, hand-cut pastel color blocks. The marketing canvas is rigorously monochrome — figmaSans variable type, pure white surfaces, pure black ink, pill-shaped CTAs — while each story section drops the page into a saturated lime, lavender, cream, mint, or pink panel that reads like a sticky note placed on a clean desk. The result is a design system that feels both technical and joyful — a tool for serious work, made by people who like color.",
+  "version": "alpha",
+  "theme": "light",
+  "tags": [],
+  "primaryColor": "#000000",
+  "layout": "editorial",
+  "category": "dashboard",
+  "previewUrl": "/api/dsh-workbench/design-templates/figma/preview",
+  "status": "ready",
+  "rendererVersion": "template-cover-renderer-v2",
+  "buildHash": "48f578dfb9fbe1a69b7ed7eab6fa39261d23ca7ba7f8fcdf505e33fd206c6891",
+  "updatedAt": "2026-08-31T02:52:47.096Z",
+  "coverUrl": "/api/dsh-workbench/design-templates/figma/cover.webp"
+}

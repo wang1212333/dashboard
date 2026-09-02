@@ -1,0 +1,17 @@
+{
+  "id": "bmw",
+  "name": "BMW-design-analysis",
+  "description": "BMW's corporate site — distinct from BMW M's motorsport-bombastic variant, this is a measured and settled corporate-automotive interface. On a light (cream-tinted white) canvas, BMW corporate blue (#1c69d4) carries every primary CTA; dark navy hero bands frame model photography. BMW Type Next Latin sets the entire hierarchy on two weights — heavy 700 display and Light 300 body. Configuration and reservation flows ride a card-based 4-up grid, where each card holds a model render, a name, and a \"Learn More\" link.",
+  "version": "alpha",
+  "theme": "light",
+  "tags": [],
+  "primaryColor": "#1c69d4",
+  "layout": "editorial",
+  "category": "dashboard",
+  "previewUrl": "/api/dsh-workbench/design-templates/bmw/preview",
+  "status": "ready",
+  "rendererVersion": "template-cover-renderer-v2",
+  "buildHash": "330ce257d995e3368a3aed881b892ff5dc23c78a18c313f8a0327b6d5bf17ebc",
+  "updatedAt": "2026-08-31T12:17:41.673Z",
+  "coverUrl": "/api/dsh-workbench/design-templates/bmw/cover.webp"
+}

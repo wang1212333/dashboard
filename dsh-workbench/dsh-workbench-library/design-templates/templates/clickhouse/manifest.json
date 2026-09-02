@@ -1,0 +1,17 @@
+{
+  "id": "clickhouse",
+  "name": "ClickHouse-design-analysis",
+  "description": "A high-performance database interface anchored on near-pure black canvas with electric yellow as the brand voltage. White typography in confident sans, yellow CTAs, and yellow-text stat numbers carry the brand voice across every page. Code blocks and product UI fragments embed directly in dark cards. The yellow + black pairing (and yellow used scarcely as accent) is the system's signature — brand identity without atmospheric decoration.",
+  "version": "alpha",
+  "theme": "light",
+  "tags": [],
+  "primaryColor": "#faff69",
+  "layout": "editorial",
+  "category": "dashboard",
+  "previewUrl": "/api/dsh-workbench/design-templates/clickhouse/preview",
+  "status": "ready",
+  "rendererVersion": "template-cover-renderer-v2",
+  "buildHash": "33adc3db05301f8cc15ff3be16de2a56a4fa7a165375f2f9a8dce7b2212b1516",
+  "updatedAt": "2026-08-31T07:15:39.866Z",
+  "coverUrl": "/api/dsh-workbench/design-templates/clickhouse/cover.webp"
+}

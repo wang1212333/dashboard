@@ -1,0 +1,17 @@
+{
+  "id": "apple",
+  "name": "Apple-design-analysis",
+  "description": "A photography-first interface that turns marketing into a museum gallery. Edge-to-edge product tiles alternate light and dark canvases, framed by SF Pro Display headlines with negative letter-spacing and a single Action Blue (#0066cc) interactive color. UI chrome recedes so the product can speak — no decorative gradients, no shadows on chrome, only the one signature drop-shadow under product imagery resting on a surface.",
+  "version": "alpha",
+  "theme": "light",
+  "tags": [],
+  "primaryColor": "#0066cc",
+  "layout": "editorial",
+  "category": "dashboard",
+  "previewUrl": "/api/dsh-workbench/design-templates/apple/preview",
+  "status": "ready",
+  "rendererVersion": "template-cover-renderer-v2",
+  "buildHash": "f6bbe685bc9878eaedff0d0cf29425f093628c51eeea179a1c84a9eb2b6405f4",
+  "updatedAt": "2026-08-31T02:49:03.045Z",
+  "coverUrl": "/api/dsh-workbench/design-templates/apple/cover.webp"
+}

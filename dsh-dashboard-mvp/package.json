@@ -1,0 +1,32 @@
+{
+  "name": "dsh-dashboard-mvp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Minimal DSH plugin for evidence-bound CSV dashboards.",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": ["dist", "cordis.patch.yml", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "dashboard:run": "node dist/dashboard-build/cli.js"
+  },
+  "dsh": {
+    "engines": { "dsh": ">=0.1.1-rc.1" },
+    "bundle": { "patch": "./cordis.patch.yml" }
+  },
+  "dshRuntime": {
+    "requires": ["@deepseek-ai/cordis", "@deepseek-ai/dsh-tools"],
+    "note": "Resolved by the DeepSeek Harness source workspace; these packages are not expected to come from public npm."
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-tools": "^0.1.1-rc.2",
+    "@types/node": "^24.3.1",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}

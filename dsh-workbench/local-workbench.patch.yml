@@ -1,0 +1,8 @@
+- insert:
+    - id: dsh-workbench-local
+      name: 'file:///E:/DSH数据看板搭建项目/dsh-workbench/dist/index.js'
+      config:
+        workspaceId: local-demo
+        libraryAdapter: filesystem
+        allowDevWrites: false
+        libraryRoot: ./dsh-workbench-library

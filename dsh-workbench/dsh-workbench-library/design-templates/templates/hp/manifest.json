@@ -1,0 +1,17 @@
+{
+  "id": "hp",
+  "name": "HP-design-analysis",
+  "description": "An inspired interpretation of HP's design language — a white-paper enterprise-consumer system anchored by HP Electric Blue (`#024ad8`) as the lone signal CTA, near-black ink (`#1a1a1a`) for headlines, geometric Forma-DJR sans throughout, and angular blue-chevron decorations that nod to the HP wordmark's slashes. Cards round at 8–16px, photos sit in soft 16px frames, and dark navy slabs anchor the customer-story and \"how can we help\" closing bands.",
+  "version": "alpha",
+  "theme": "light",
+  "tags": [],
+  "primaryColor": "#024ad8",
+  "layout": "editorial",
+  "category": "dashboard",
+  "previewUrl": "/api/dsh-workbench/design-templates/hp/preview",
+  "status": "ready",
+  "rendererVersion": "template-cover-renderer-v2",
+  "buildHash": "f71b13a1a25c26cbd21c8fe68018637daad4b884e94fafe464463a2a90429f7a",
+  "updatedAt": "2026-08-31T09:08:37.507Z",
+  "coverUrl": "/api/dsh-workbench/design-templates/hp/cover.webp"
+}

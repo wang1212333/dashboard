@@ -1,0 +1,17 @@
+{
+  "id": "binance",
+  "name": "Binance-design-analysis",
+  "description": "A confident financial-platform interface anchored on a deep near-black canvas, where Binance's iconic yellow (#FCD535) carries every primary CTA, brand accent, and value-claim moment. Type runs Binance's custom BinanceNova / BinancePlex stack at modest weights — the system trusts size and yellow voltage over bold weight. Marketing and product surfaces default to the dark theme; transactional surfaces (buy crypto, deposit, exchange) flip to a light theme that shares the same yellow CTAs and gray-blue hairlines. Trading green (up) and red (down) accents thread through both modes for price-direction signals.",
+  "version": "alpha",
+  "theme": "light",
+  "tags": [],
+  "primaryColor": "#fcd535",
+  "layout": "editorial",
+  "category": "dashboard",
+  "previewUrl": "/api/dsh-workbench/design-templates/binance/preview",
+  "status": "ready",
+  "rendererVersion": "template-cover-renderer-v2",
+  "buildHash": "27f877759560cfaa07e9153acf8483e81ad71ac4dfb71102ca698aa63a2aae6e",
+  "updatedAt": "2026-08-31T02:51:55.015Z",
+  "coverUrl": "/api/dsh-workbench/design-templates/binance/cover.webp"
+}

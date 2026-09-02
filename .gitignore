@@ -1,0 +1,29 @@
+# Dependencies and build output
+**/node_modules/
+**/dist/
+**/dist-dashboard/
+**/coverage/
+*.tsbuildinfo
+
+# Local runtime state and generated dashboard artifacts
+**/.dsh-home/
+**/.dsh-workbench/
+**/outputs/
+**/agent-inputs/
+**/assets/*/revisions/
+**/assets/*/release.json
+**/assets/*/asset.json
+
+# Local configuration and diagnostic files
+.env
+.env.*
+!.env.example
+*.log
+*.tmp
+*.tgz
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

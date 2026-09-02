@@ -1,0 +1,134 @@
+[
+  {
+    "dimension_name": "统计月份",
+    "field_name": "statistics_month",
+    "description": "统计月份，时间格式为 Y-%m 或按表内实际月份编码使用。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "年份",
+    "field_name": "date_year",
+    "description": "年份，时间格式为 Y。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "季度",
+    "field_name": "date_quarter",
+    "description": "统计季度，需要和年份一起使用。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "季度编码",
+    "field_name": "date_quarter_code",
+    "description": "统计季度编码，需要和年份一起使用，例如 Q1、Q2、Q3、Q4。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "事业部",
+    "field_name": "branch_name",
+    "description": "事业部，例如 TECNO事业部、itel事业部、Infinix事业部、战略业务拓展部。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "品牌",
+    "field_name": "brand",
+    "description": "品牌。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "项目",
+    "field_name": "project",
+    "description": "手机项目名。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "国家编码",
+    "field_name": "country_code",
+    "description": "国家编码，发货国家编码。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "国家",
+    "field_name": "country_zh",
+    "description": "国家中文名称，发货国家名称。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "市场划分",
+    "field_name": "market_segmentation",
+    "description": "市场划分。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "一级区域",
+    "field_name": "business_area_one_name",
+    "description": "一级区域、地区部或大区。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "二级区域",
+    "field_name": "business_area_two_name",
+    "description": "二级区域。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "三级区域",
+    "field_name": "business_area_three_name",
+    "description": "三级区域。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "市场名",
+    "field_name": "market_name",
+    "description": "手机市场名。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "市场名含内存",
+    "field_name": "market_memory",
+    "description": "手机市场名，带内存信息。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "机型大类编码",
+    "field_name": "series_senior_code",
+    "description": "手机机型类别编码，包括 SP、FP、PAD。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "机型大类",
+    "field_name": "series_senior",
+    "description": "手机机型类别，包括功能机、智能机、平板。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "机型细分类",
+    "field_name": "series_junior",
+    "description": "手机大类细分，例如高端机、中端机、低端机。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "系列",
+    "field_name": "series",
+    "description": "手机产品系列。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "机型",
+    "field_name": "model_name",
+    "description": "手机机型，项目名带内存。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "内存",
+    "field_name": "memory",
+    "description": "手机内存。",
+    "usage": ["filter", "group"]
+  },
+  {
+    "dimension_name": "产品代际",
+    "field_name": "product_generation",
+    "description": "产品代际。",
+    "usage": ["filter", "group"]
+  }
+]

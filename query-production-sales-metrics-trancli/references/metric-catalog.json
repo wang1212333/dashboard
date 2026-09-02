@@ -1,0 +1,194 @@
+[
+  {
+    "metric_name": "月预估",
+    "mapped_fields": ["forecast_sales_qty"],
+    "metric_definition": "月度预估出货，按筛选条件直取。",
+    "related_fields": []
+  },
+  {
+    "metric_name": "AOP",
+    "mapped_fields": ["aop"],
+    "metric_definition": "年度执行计划，按筛选条件直取。",
+    "related_fields": ["aop_hq", "aop_tq"]
+  },
+  {
+    "metric_name": "SI",
+    "mapped_fields": ["si"],
+    "metric_definition": "出货数量或销量，按筛选条件直取。",
+    "related_fields": ["si_hq", "si_tq"]
+  },
+  {
+    "metric_name": "DRP2",
+    "mapped_fields": ["drp2"],
+    "metric_definition": "最终版要货计划，按筛选条件直取。",
+    "related_fields": ["drp2_hq", "drp2_tq"]
+  },
+  {
+    "metric_name": "SO",
+    "mapped_fields": ["so"],
+    "metric_definition": "SO或融合激活数，默认按2年内发货限制口径统计，按筛选条件直取。",
+    "related_fields": ["so_hq", "so_tq"]
+  },
+  {
+    "metric_name": "SO（不含2年限制）",
+    "mapped_fields": ["so_no_2year"],
+    "metric_definition": "SO或融合激活数，不受2年内发货限制。",
+    "related_fields": ["so_no_2year_hq", "so_no_2year_tq"]
+  },
+  {
+    "metric_name": "插卡SO",
+    "mapped_fields": ["dpm_so"],
+    "metric_definition": "插卡SO或插卡激活数。",
+    "related_fields": ["dpm_so_hq", "dpm_so_tq"]
+  },
+  {
+    "metric_name": "属地激活或属地SO",
+    "mapped_fields": ["actc_act_qty"],
+    "metric_definition": "属地激活或属地SO。",
+    "related_fields": ["actc_act_qty_hq", "actc_act_qty_tq"]
+  },
+  {
+    "metric_name": "渠道库存",
+    "mapped_fields": ["stock_qty"],
+    "metric_definition": "渠道库存，按筛选条件直取。",
+    "related_fields": []
+  },
+  {
+    "metric_name": "全渠道库存",
+    "mapped_fields": ["total_stock_qty"],
+    "metric_definition": "全渠道库存，按筛选条件直取。",
+    "related_fields": []
+  },
+  {
+    "metric_name": "近7日融合激活总数",
+    "mapped_fields": ["recent_7_so"],
+    "metric_definition": "近7日融合激活总数。",
+    "related_fields": []
+  },
+  {
+    "metric_name": "近15日融合激活总数",
+    "mapped_fields": ["recent_15_so"],
+    "metric_definition": "近15日融合激活总数。",
+    "related_fields": []
+  },
+  {
+    "metric_name": "近30日融合激活总数",
+    "mapped_fields": ["recent_30_so"],
+    "metric_definition": "近30日融合激活总数。",
+    "related_fields": []
+  },
+  {
+    "metric_name": "AOP预估达成率",
+    "mapped_fields": ["forecast_sales_qty", "aop"],
+    "metric_definition": "月预估 ÷ AOP。",
+    "related_fields": ["aop_hq", "aop_tq"]
+  },
+  {
+    "metric_name": "DRP2预估达成率",
+    "mapped_fields": ["forecast_sales_qty", "drp2"],
+    "metric_definition": "月预估 ÷ DRP2。",
+    "related_fields": ["drp2_hq", "drp2_tq"]
+  },
+  {
+    "metric_name": "预估出货达成进展",
+    "mapped_fields": ["si", "forecast_sales_qty"],
+    "metric_definition": "SI ÷ 月预估。",
+    "related_fields": ["si_hq", "si_tq"]
+  },
+  {
+    "metric_name": "DRP2达成率",
+    "mapped_fields": ["si", "forecast_sales_qty", "drp2"],
+    "metric_definition": "当前月一般取 月预估 ÷ DRP2，历史月一般取 SI ÷ DRP2。",
+    "related_fields": ["si_hq", "si_tq", "drp2_hq", "drp2_tq"]
+  },
+  {
+    "metric_name": "DRP2偏差",
+    "mapped_fields": ["si", "drp2"],
+    "metric_definition": "SI - DRP2。",
+    "related_fields": ["si_hq", "si_tq", "drp2_hq", "drp2_tq"]
+  },
+  {
+    "metric_name": "AOP偏差",
+    "mapped_fields": ["si", "aop"],
+    "metric_definition": "SI - AOP。",
+    "related_fields": ["si_hq", "si_tq", "aop_hq", "aop_tq"]
+  },
+  {
+    "metric_name": "SI年累计",
+    "mapped_fields": ["si"],
+    "metric_definition": "年至今 SI 累加。",
+    "related_fields": ["si_hq", "si_tq"]
+  },
+  {
+    "metric_name": "SO年累计",
+    "mapped_fields": ["so"],
+    "metric_definition": "年至今 SO 累加。",
+    "related_fields": ["so_hq", "so_tq"]
+  },
+  {
+    "metric_name": "年累计AOP达成率",
+    "mapped_fields": ["si", "aop"],
+    "metric_definition": "年至今 SI ÷ AOP。",
+    "related_fields": ["si_hq", "si_tq", "aop_hq", "aop_tq"]
+  },
+  {
+    "metric_name": "AOP缺口",
+    "mapped_fields": ["si", "forecast_sales_qty", "aop"],
+    "metric_definition": "(历史月份SI + 当月预估) - (1-N月AOP) < 0 时的缺口值。",
+    "related_fields": ["si_hq", "si_tq", "aop_hq", "aop_tq"]
+  },
+  {
+    "metric_name": "超AOP",
+    "mapped_fields": ["si", "forecast_sales_qty", "aop"],
+    "metric_definition": "(历史月份SI + 当月预估) - (1-N月AOP) > 0 时的超出值。",
+    "related_fields": ["si_hq", "si_tq", "aop_hq", "aop_tq"]
+  },
+  {
+    "metric_name": "渠道DOS",
+    "mapped_fields": ["stock_qty", "recent_30_so"],
+    "metric_definition": "默认等于渠道DOS(30日)，公式：渠道库存 ÷ (近30日融合激活总数 ÷ 30)。",
+    "related_fields": ["recent_7_so", "recent_15_so", "recent_30_so"]
+  },
+  {
+    "metric_name": "全渠道DOS",
+    "mapped_fields": ["total_stock_qty", "recent_30_so"],
+    "metric_definition": "默认等于全渠道DOS(30日)，公式：全渠道库存 ÷ (近30日融合激活总数 ÷ 30)。",
+    "related_fields": ["recent_7_so", "recent_15_so", "recent_30_so"]
+  },
+  {
+    "metric_name": "渠道DOS(7日)",
+    "mapped_fields": ["stock_qty", "recent_7_so"],
+    "metric_definition": "渠道库存 ÷ (近7日融合激活总数 ÷ 7)。",
+    "related_fields": ["recent_7_so"]
+  },
+  {
+    "metric_name": "全渠道DOS(7日)",
+    "mapped_fields": ["total_stock_qty", "recent_7_so"],
+    "metric_definition": "全渠道库存 ÷ (近7日融合激活总数 ÷ 7)。",
+    "related_fields": ["recent_7_so"]
+  },
+  {
+    "metric_name": "渠道DOS(15日)",
+    "mapped_fields": ["stock_qty", "recent_15_so"],
+    "metric_definition": "渠道库存 ÷ (近15日融合激活总数 ÷ 15)。",
+    "related_fields": ["recent_15_so"]
+  },
+  {
+    "metric_name": "全渠道DOS(15日)",
+    "mapped_fields": ["total_stock_qty", "recent_15_so"],
+    "metric_definition": "全渠道库存 ÷ (近15日融合激活总数 ÷ 15)。",
+    "related_fields": ["recent_15_so"]
+  },
+  {
+    "metric_name": "渠道DOS(30日)",
+    "mapped_fields": ["stock_qty", "recent_30_so"],
+    "metric_definition": "渠道库存 ÷ (近30日融合激活总数 ÷ 30)。",
+    "related_fields": ["recent_30_so"]
+  },
+  {
+    "metric_name": "全渠道DOS(30日)",
+    "mapped_fields": ["total_stock_qty", "recent_30_so"],
+    "metric_definition": "全渠道库存 ÷ (近30日融合激活总数 ÷ 30)。",
+    "related_fields": ["recent_30_so"]
+  }
+]

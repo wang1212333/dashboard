@@ -1,0 +1,17 @@
+{
+  "id": "bugatti",
+  "name": "Bugatti-design-analysis",
+  "description": "An austere luxury-automotive interface that uses near-pure black canvas, white uppercase letterspaced display, and full-bleed automotive photography as the only voltage. The system runs three custom Bugatti typefaces — Bugatti Display, Bugatti Text Regular, and Bugatti Monospace — and combines them at modest weights with wide tracking to feel European-engineered, hyper-minimal, and quietly expensive. There is no accent color, no decorative element, no chrome — only photography, typography, and the brand wordmark.",
+  "version": "alpha",
+  "theme": "light",
+  "tags": [],
+  "primaryColor": "#ffffff",
+  "layout": "editorial",
+  "category": "dashboard",
+  "previewUrl": "/api/dsh-workbench/design-templates/bugatti/preview",
+  "status": "ready",
+  "rendererVersion": "template-cover-renderer-v2",
+  "buildHash": "1a1af708c99a3d07cca44070dd1dc41475fb1a22d9a3478075e0f09df5053042",
+  "updatedAt": "2026-08-31T02:52:08.256Z",
+  "coverUrl": "/api/dsh-workbench/design-templates/bugatti/cover.webp"
+}

@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "outDir": "dist-dashboard",
+    "rootDir": "src",
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": [
+    "src/dashboard-build/**/*.ts",
+    "src/dashboard-agent/**/*.ts",
+    "src/design-library/**/*.ts",
+    "src/data-ingestion/**/*.ts",
+    "src/dashboard-export/validator.ts",
+    "src/dashboard-policy/**/*.ts",
+    "src/library/**/*.ts",
+    "src/local-app/**/*.ts"
+  ]
+}

@@ -1,0 +1,5 @@
+# Minimal plugin installation. The optional OMD connector is kept as a separate
+# example because a dashboard can still use data validation when OMD is absent.
+- insert:
+    - id: dsh-dashboard-mvp
+      name: dsh-dashboard-mvp

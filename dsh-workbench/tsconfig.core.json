@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/contracts.ts",
+    "src/service.ts",
+    "src/dashboard-agent/**/*.ts",
+    "src/agent-run/**/*.ts",
+    "src/dashboard-policy/**/*.ts",
+    "src/dashboard-export/**/*.ts",
+    "src/data-connectors/**/*.ts",
+    "src/dashboard-build/**/*.ts",
+    "src/data-ingestion/**/*.ts",
+    "src/library/**/*.ts",
+    "src/persistence/**/*.ts",
+    "src/local-app/**/*.ts",
+    "tests/**/*.ts"
+  ],
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "."
+  }
+}
