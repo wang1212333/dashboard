@@ -47,6 +47,8 @@ describe('local import app', () => {
     expect(page).toContain('conversationTurnsHtml')
     expect(page).toContain('ensureConversationHistory')
     expect(page).toContain('function ensureConversationHistory()')
+    expect(page).toContain('if(title){const nextTitle=normalizeTitle(title.textContent);if(title.textContent!==nextTitle)title.textContent=nextTitle}')
+    expect(page).toContain("if(toggle.textContent!==toggleTitle)toggle.textContent=toggleTitle")
   })
 
   it('renders syntactically valid template-library behavior with an explicit selection endpoint', () => {

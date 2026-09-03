@@ -22,7 +22,18 @@ export function myDashboardsBehavior(): string {
     .replace(oldBoardClick, "url({page:'boards'});loadLiveDashboards()")
     .replace(oldInitialLoad, `window.addEventListener('popstate',()=>{init();if(params().get('page')==='boards')loadLiveDashboards();else render()});${fetcher}init();if(params().get('page')==='boards')loadLiveDashboards()`)
     .replace(oldPrimaryAction, "host.querySelectorAll('[data-primary]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();const x=state.items.find(i=>i.id===b.dataset.primary);if(x?.dashboardUrl)location.assign(x.dashboardUrl);else open(b.dataset.primary,b)}))")
+  // The enhancer observes child-list changes across the page. Only write when
+  // a value changed; unconditional textContent assignments trigger the same
+  // observer again and can lock the browser in a mutation loop.
   return `${liveScript};${historyEnhancer}`
+    .replace(
+      'if(title)title.textContent=normalizeTitle(title.textContent);',
+      'if(title){const nextTitle=normalizeTitle(title.textContent);if(title.textContent!==nextTitle)title.textContent=nextTitle};',
+    )
+    .replace(
+      "toggle.textContent=section.dataset.historyExpanded==='true'?'收起最近对话':'查看全部'",
+      "{const toggleTitle=section.dataset.historyExpanded==='true'?'收起最近对话':'查看全部';if(toggle.textContent!==toggleTitle)toggle.textContent=toggleTitle}",
+    )
 }
 
 /** A real dashboard document is rendered inside a safely isolated card viewport. */
