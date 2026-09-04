@@ -20,4 +20,6 @@ export interface KnowledgeLibrary {
   getAsset(assetId: string): Promise<LibraryAsset>
   /** Read the dashboard index used by the local “我的看板” page. */
   listAssets(): Promise<LibraryAsset[]>
+  /** Permanently removes an asset and every locally stored revision. */
+  deleteAsset?(assetId: string): Promise<void>
 }

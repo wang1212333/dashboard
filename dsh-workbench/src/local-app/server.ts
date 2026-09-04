@@ -25,6 +25,7 @@ const MAX_BODY_BYTES = MAX_CSV_BYTES + 512 * 1024
 const REVISION = /^rev-\d{4}$/
 const DATA_AGENT_LOGO_PATH = resolve(dirname(fileURLToPath(import.meta.url)), 'assets/data-agent-logo-black.png')
 const THREE_MODULE_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '../../node_modules/three/build/three.module.js')
+const THREE_CORE_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '../../node_modules/three/build/three.core.js')
 
 export interface LocalWorkbenchAppOptions { libraryRoot: string; host?: string; port?: number }
 export interface RunningLocalWorkbenchApp { server: Server; url: string; close(): Promise<void> }
@@ -107,7 +108,7 @@ function clearSelectionCookie(): string { return `${TEMPLATE_SELECTION_COOKIE}=;
 function errorStatus(error: unknown): number {
   const message = error instanceof Error ? error.message : 'UNKNOWN_ERROR'
   if (error instanceof OpenMetadataMcpError) return error.statusCode
-  if (/REQUIRED|INVALID|TOO_LARGE|CSV_|DATA_|ASSET_ID|CONFIRMATION|MAPPING_|DASHBOARD_PLAN|HISTORY_/.test(message)) return 400
+  if (/REQUIRED|INVALID|TOO_LARGE|CSV_|DATA_|ASSET_ID|CONFIRMATION|PUBLISH_|RELEASE_|PREVIEW_|MAPPING_|DASHBOARD_PLAN|HISTORY_/.test(message)) return 400
   if (/NOT_FOUND/.test(message)) return 404
   return 500
 }
@@ -137,17 +138,39 @@ export function createLocalWorkbenchServer(options: LocalWorkbenchAppOptions): S
       if (request.method === 'GET' && url.pathname === '/') return html(response, renderLocalWorkbenchPage())
       if (request.method === 'GET' && url.pathname === '/assets/data-agent-logo-black.png') return readFile(DATA_AGENT_LOGO_PATH).then(value => png(response, value))
       if (request.method === 'GET' && url.pathname === '/assets/three.module.js') return readFile(THREE_MODULE_PATH, 'utf8').then(value => javascript(response, value))
+      if (request.method === 'GET' && url.pathname === '/assets/three.core.js') return readFile(THREE_CORE_PATH, 'utf8').then(value => javascript(response, value))
       if (request.method === 'GET' && url.pathname === '/api/history') return json(response, 200, { history: await history.read() })
       if (request.method === 'PUT' && url.pathname === '/api/history') {
         const body = await readJson(request)
         return json(response, 200, { history: await history.write(body.history) })
       }
       if (request.method === 'GET' && url.pathname === '/api/dashboards') {
-        const dashboards = await Promise.all((await library.listAssets()).map(async asset => {
-          const stored = await library.readRevision(asset.assetId, asset.latestRevision)
-          return toDashboardSummary(asset, `/assets/${encodeURIComponent(asset.assetId)}/${asset.latestRevision}/dashboard.html`, stored.model)
+        const includeDrafts = url.searchParams.get('includeDrafts') === 'true'
+        const dashboards = await Promise.all((await library.listAssets()).filter(asset => Boolean(includeDrafts ? asset.latestRevision : asset.releasedRevision)).map(async asset => {
+          const revision = asset.releasedRevision ?? asset.latestRevision!
+          const stored = await library.readRevision(asset.assetId, revision)
+          return toDashboardSummary({ ...asset, displayName: stored.manifest.displayName }, `/assets/${encodeURIComponent(asset.assetId)}/${revision}/dashboard.html`, stored.model)
         }))
         return json(response, 200, { dashboards })
+      }
+      const dashboardDelete = /^\/api\/dashboards\/([a-z][a-z0-9-]{2,62})$/.exec(url.pathname)
+      if (request.method === 'DELETE' && dashboardDelete) {
+        const body = await readJson(request)
+        if (body.confirmed !== true) throw new Error('DELETE_CONFIRMATION_REQUIRED')
+        await library.deleteAsset(dashboardDelete[1])
+        return json(response, 200, { deleted: true, assetId: dashboardDelete[1] })
+      }
+      const draftAction = /^\/api\/dashboard-drafts\/([a-z][a-z0-9-]{2,62})\/(rev-\d{4})\/(preview|release)$/.exec(url.pathname)
+      if (request.method === 'POST' && draftAction) {
+        const [, assetId, revision, action] = draftAction
+        if (action === 'preview') {
+          const stored = await library.preview(assetId, revision)
+          return json(response, 200, { revision: stored.revision, previewUrl: `/assets/${encodeURIComponent(assetId)}/${revision}/dashboard.html` })
+        }
+        const body = await readJson(request)
+        if (body.confirmed !== true) throw new Error('PUBLISH_CONFIRMATION_REQUIRED')
+        const release = await library.release(assetId, revision, { approvalId: `user-confirmed:${randomUUID()}` })
+        return json(response, 200, { release, dashboardUrl: `/assets/${encodeURIComponent(assetId)}/${release.revision}/dashboard.html` })
       }
       if (request.method === 'POST' && url.pathname === '/api/analyze') {
         const body = await readJson(request)

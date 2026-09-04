@@ -148,7 +148,7 @@ export function apply(ctx: ClientContext): void {
     const center = centerColumn()
     if (center && !view?.isConnected) {
       view ??= document.createElement('div'); view.dataset.dshWorkbenchView = ''; view.dataset.dshPlugin = 'workbench'
-      frame ??= document.createElement('iframe'); frame.dataset.dshWorkbenchFrame = ''; frame.title = 'DSH 看板工作台'; frame.src = '/dsh-workbench?embedded=1'
+      frame ??= document.createElement('iframe'); frame.dataset.dshWorkbenchFrame = ''; frame.title = 'DSH 看板工作台'; frame.src = '/dsh-workbench?embedded=2'
       view.replaceChildren(frame)
       if (getComputedStyle(center).position === 'static') center.style.position = 'relative'
       center.append(view)
@@ -406,5 +406,5 @@ function agentPrompt(intent: string, filePath?: string, profile?: DatasetProfile
   void designTemplate
   if (asset) return `用户需求：${intent}\n\n用户选择的数据资产：\n- 名称：${asset.name}\n- 类型：${asset.entityType}\n- FQN：${asset.fqn}${asset.description ? `\n- 描述：${asset.description}` : ''}${asset.columns.length ? `\n- 字段：${asset.columns.join('、')}` : ''}${asset.glossaryTerms?.length ? `\n- 术语：${asset.glossaryTerms.join('、')}` : ''}\n\n请自行决定如何使用可用的 MCP 工具、数据和网页能力完成用户请求。不要套用预置看板模板、Plan、确认或 Spec 流程。`
   if (!filePath) throw new Error('DATA_SOURCE_REQUIRED')
-  return `用户需求：${intent}\n\n数据文件（CSV，已在本机保存）：${filePath}${verifiedProfile}\n\n这是原生 DeepSeek Harness 看板任务。请自主读取和理解数据，自行决定信息架构、指标、图表、交互、视觉与实现方式，直接生成能够满足用户目标的完整看板。你可以按需要使用可用工具；不使用预设模板、字段映射、Plan、确认、Spec 或确定性渲染流程。完成后使用 workbench_save_generated_dashboard 保存完整 HTML。`
+  return `用户需求：${intent}\n\n数据文件（CSV，已在本机保存）：${filePath}${verifiedProfile}\n\n这是原生 DeepSeek Harness 看板任务。请自主读取和理解数据，自行决定信息架构、指标、图表、交互、视觉与实现方式，直接生成能够满足用户目标的完整看板。你可以按需要使用可用工具；不使用预设模板、字段映射、Plan、确认、Spec 或确定性渲染流程。完成后使用 workbench_save_generated_dashboard 保存完整 HTML；它只会保存为会话内草稿，用户将在页面中预览并明确确认后才会发布到“我的看板”。`
 }

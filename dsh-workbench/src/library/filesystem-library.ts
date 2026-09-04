@@ -85,6 +85,7 @@ export class FilesystemKnowledgeLibrary implements KnowledgeLibrary {
   async preview(assetId: string, revision?: string): Promise<StoredDashboardRevision> {
     const stored = await this.readRevision(assetId, revision)
     if (stored.revision.stage === 'released') return stored
+    if (stored.revision.stage === 'preview') return stored
     if (stored.revision.stage !== 'draft') throw new Error(`PREVIEW_NOT_ALLOWED:${stored.revision.stage}`)
     const updated = { ...stored.revision, stage: 'preview' as const, updatedAt: new Date().toISOString() }
     await writeJsonAtomic(this.revisionPath(assetId, stored.revision.revision), updated)
@@ -144,6 +145,13 @@ export class FilesystemKnowledgeLibrary implements KnowledgeLibrary {
       return await exists(path) ? readJson<LibraryAsset>(path) : undefined
     }))
     return assets.filter((asset): asset is LibraryAsset => Boolean(asset)).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+  }
+
+  async deleteAsset(assetId: string): Promise<void> {
+    this.assertAssetId(assetId)
+    const directory = this.assetDirectory(assetId)
+    if (!await exists(this.assetPath(assetId))) throw new Error(`ASSET_NOT_FOUND:${assetId}`)
+    await rm(directory, { recursive: true, force: false })
   }
 
   private async tryReadAsset(assetId: string): Promise<LibraryAsset | undefined> {

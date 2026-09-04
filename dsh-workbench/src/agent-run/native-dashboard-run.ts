@@ -34,7 +34,33 @@ export class NativeDashboardRunService {
           yield event('run.started', { fileName: input.fileName })
           yield event('tool.started', { toolCallId: 'native-dsh-generate', title: 'DeepSeek Harness 正在自主生成看板' })
           let characters = 0
-          const generated = await self.planner.generateDashboard({ csv: input.csv, fileName: input.fileName, businessGoal: input.intent }, controller.signal, delta => { characters += delta.length })
+          const deltas: string[] = []
+          let generated: { html: string; title: string; summary: string } | undefined
+          let generationError: unknown
+          let generationFinished = false
+          let resume: (() => void) | undefined
+          const wake = () => { const pending = resume; resume = undefined; pending?.() }
+          void self.planner.generateDashboard(
+            { csv: input.csv, fileName: input.fileName, businessGoal: input.intent },
+            controller.signal,
+            delta => { characters += delta.length; deltas.push(delta); wake() },
+          ).then(
+            value => { generated = value; generationFinished = true; wake() },
+            error => { generationError = error; generationFinished = true; wake() },
+          )
+          while (!generationFinished || deltas.length) {
+            const delta = deltas.shift()
+            if (delta !== undefined) {
+              yield event('text.delta', { target: 'dashboard', delta })
+              continue
+            }
+            await new Promise<void>(resolve => {
+              if (generationFinished || deltas.length) resolve()
+              else resume = resolve
+            })
+          }
+          if (generationError) throw generationError
+          if (!generated) throw new Error('MODEL_EMPTY_RESPONSE')
           if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError')
           yield event('tool.completed', { toolCallId: 'native-dsh-generate', title: '原生 Agent 已完成看板设计', detail: `生成 ${characters.toLocaleString('zh-CN')} 个字符` })
           yield event('tool.started', { toolCallId: 'save-dashboard', title: '保存生成的看板' })

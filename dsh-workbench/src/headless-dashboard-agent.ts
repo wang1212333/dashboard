@@ -19,14 +19,26 @@ export type HeadlessDatasetContext = {
 }
 
 export type DashboardAgentStreamEvent =
+  | { type: 'agent.status'; data: { message: string } }
   | { type: 'assistant.delta'; data: { text: string } }
   | { type: 'tool.started'; data: { callId: string; title: string } }
   | { type: 'tool.completed'; data: { callId: string; title: string; failed: boolean } }
+  | { type: 'dashboard.draft.ready'; data: { assetId: string; revision: string; title: string } }
   | { type: 'agent.completed'; data: Record<string, never> }
   | { type: 'agent.stopped'; data: Record<string, never> }
   | { type: 'agent.error'; data: { message: string } }
 
 type Listener = (event: DashboardAgentStreamEvent) => void
+type LiveAgent = {
+  agentId: string
+  toolNames: Map<string, string>
+  listeners: Set<Listener>
+  cancelled: boolean
+  dataset?: HeadlessDatasetContext
+  /** Carries a tag split across model chunks; never forwarded to the browser. */
+  pendingAssistantText: string
+  insideReasoning: boolean
+}
 
 /**
  * A plugin-owned DSH Agent session. The session remains inside the Harness for
@@ -34,28 +46,36 @@ type Listener = (event: DashboardAgentStreamEvent) => void
  * presentation-safe events to the workbench page.
  */
 export class HeadlessDashboardAgentService {
-  private readonly live = new Map<string, { toolNames: Map<string, string>; listeners: Set<Listener>; cancelled: boolean; dataset?: HeadlessDatasetContext }>()
+  /** The browser session id and the Harness agent id are not assumed equal. */
+  private readonly live = new Map<string, LiveAgent>()
+  private readonly sessionByAgentId = new Map<string, string>()
 
   constructor(private readonly ctx: Context, private readonly defaultCwd: string) {
     ctx.on('session/event', (session, event) => this.forwardSessionEvent(String(session.id), event))
     ctx.on('agent/status', ({ agent, status }) => {
-      if (status !== 'idle') return
-      const entry = this.live.get(String(agent.id))
+      const sessionId = this.sessionByAgentId.get(String(agent.id))
+      const entry = sessionId ? this.live.get(sessionId) : undefined
       if (!entry) return
+      if (status !== 'idle') return
+      this.flushAssistantText(sessionId!, entry)
       const type = entry.cancelled ? 'agent.stopped' : 'agent.completed'
       entry.cancelled = false
-      this.publish(String(agent.id), { type, data: {} })
+      this.publish(sessionId!, { type, data: {} })
     })
     ctx.on('agent/error', ({ agent, error }) => {
       const message = error instanceof Error ? error.message : '看板智能体执行失败'
-      this.publish(String(agent.id), { type: 'agent.error', data: { message: publicMessage(message) } })
+      const sessionId = this.sessionByAgentId.get(String(agent.id))
+      if (sessionId) this.publish(sessionId, { type: 'agent.error', data: { message: publicMessage(message) } })
     })
   }
 
   async create(dataset?: HeadlessDatasetContext): Promise<string> {
+    return this.attach(randomUUID() as SessionId, dataset)
+  }
+
+  private async attach(sessionId: SessionId, dataset?: HeadlessDatasetContext): Promise<string> {
     const route = this.currentRoute()
     if (!route) throw new Error('DSH_MODEL_NOT_CONFIGURED')
-    const sessionId = randomUUID() as SessionId
     // `cwd` is required by the deployment persona. It is deliberately derived
     // on the host from plugin configuration or a server-resolved upload, never
     // from a browser supplied file path.
@@ -69,18 +89,25 @@ export class HeadlessDashboardAgentService {
       // policies, tool guards, approvals, and sandboxing still execute in the
       // standard DSH tool pipeline.
     })
-    this.live.set(String(handle.agent.id), { toolNames: new Map(), listeners: new Set(), cancelled: false, dataset })
-    return String(handle.agent.id)
+    const agentId = String(handle.agent.id)
+    const publicSessionId = String(sessionId)
+    this.live.set(publicSessionId, { agentId, toolNames: new Map(), listeners: new Set(), cancelled: false, dataset, pendingAssistantText: '', insideReasoning: false })
+    this.sessionByAgentId.set(agentId, publicSessionId)
+    return publicSessionId
   }
 
-  exists(sessionId: string): boolean { return this.live.has(sessionId) && this.ctx.agents.get(sessionId as SessionId) !== undefined }
+  exists(sessionId: string): boolean { return this.agentFor(sessionId) !== undefined }
 
   send(sessionId: string, prompt: string): void {
-    const agent = this.ctx.agents.get(sessionId as SessionId)
-    if (!agent || !this.live.has(sessionId)) throw new Error('DASHBOARD_AGENT_SESSION_NOT_FOUND')
+    const agent = this.agentFor(sessionId)
+    if (!agent) throw new Error('DASHBOARD_AGENT_SESSION_NOT_FOUND')
     const text = prompt.trim()
     if (!text) throw new Error('PROMPT_REQUIRED')
-    const datasetContext = this.live.get(sessionId)?.dataset
+    const entry = this.live.get(sessionId)!
+    entry.pendingAssistantText = ''
+    entry.insideReasoning = false
+    this.publish(sessionId, { type: 'agent.status', data: { message: '已连接智能体，正在准备回复' } })
+    const datasetContext = entry.dataset
     agent.followup(createUserMessage({
       content: datasetContext ? [{ type: 'text', text: describeDataset(datasetContext) }, { type: 'text', text }] : [{ type: 'text', text }],
       source: { kind: 'plugin', plugin: 'dsh-workbench', form: 'notice', summary: '新建看板页用户输入' },
@@ -88,8 +115,8 @@ export class HeadlessDashboardAgentService {
   }
 
   cancel(sessionId: string): boolean {
-    const agent = this.ctx.agents.get(sessionId as SessionId)
-    if (!agent || !this.live.has(sessionId)) return false
+    const agent = this.agentFor(sessionId)
+    if (!agent) return false
     this.live.get(sessionId)!.cancelled = true
     agent.cancel({ kind: 'user' })
     return true
@@ -109,30 +136,113 @@ export class HeadlessDashboardAgentService {
   }
 
   private forwardSessionEvent(sessionId: string, event: SessionEvent): void {
-    const entry = this.live.get(sessionId)
+    const publicSessionId = this.live.has(sessionId) ? sessionId : this.sessionByAgentId.get(sessionId)
+    if (!publicSessionId) return
+    const entry = this.live.get(publicSessionId)
     if (!entry) return
     if (event.type === 'assistant/chunk') {
       const chunk = event.data.chunk
-      if (chunk.type === 'text-delta' && typeof chunk.text === 'string') this.publish(sessionId, { type: 'assistant.delta', data: { text: chunk.text } })
+      if (chunk.type === 'text-delta' && typeof chunk.text === 'string') this.forwardPublicText(publicSessionId, entry, chunk.text)
       return
     }
     if (event.type === 'tool/call') {
       entry.toolNames.set(String(event.data.callId), event.data.name)
-      this.publish(sessionId, { type: 'tool.started', data: { callId: String(event.data.callId), title: event.data.name } })
+      this.publish(publicSessionId, { type: 'tool.started', data: { callId: String(event.data.callId), title: event.data.name } })
       return
     }
     if (event.type === 'tool/result') {
       const callId = String(event.data.message.content[0].toolCallId)
-      this.publish(sessionId, {
+      const toolName = entry.toolNames.get(callId)
+      this.publish(publicSessionId, {
         type: 'tool.completed',
-        data: { callId, title: entry.toolNames.get(callId) ?? '工具调用', failed: Boolean(event.data.error) },
+        data: { callId, title: toolName ?? '工具调用', failed: Boolean(event.data.error) },
       })
+      if (!event.data.error && toolName === 'workbench_save_generated_dashboard') {
+        const draft = draftFromToolResult(event.data.message.content)
+        if (draft) this.publish(publicSessionId, { type: 'dashboard.draft.ready', data: draft })
+      }
     }
   }
 
   private publish(sessionId: string, event: DashboardAgentStreamEvent): void {
     for (const listener of this.live.get(sessionId)?.listeners ?? []) listener(event)
   }
+
+  /**
+   * Models often put private chain-of-thought inside <think> tags and may split
+   * those tags over arbitrary transport chunks.  Keep that material server-side
+   * while preserving every public token after the closing tag for true SSE.
+   */
+  private forwardPublicText(sessionId: string, entry: LiveAgent, chunk: string): void {
+    entry.pendingAssistantText += chunk
+    let visible = ''
+    while (entry.pendingAssistantText) {
+      const lower = entry.pendingAssistantText.toLowerCase()
+      if (entry.insideReasoning) {
+        const end = lower.indexOf('</think>')
+        if (end < 0) {
+          entry.pendingAssistantText = entry.pendingAssistantText.slice(-7)
+          break
+        }
+        entry.pendingAssistantText = entry.pendingAssistantText.slice(end + '</think>'.length)
+        entry.insideReasoning = false
+        continue
+      }
+      const start = lower.indexOf('<think>')
+      if (start >= 0) {
+        visible += entry.pendingAssistantText.slice(0, start)
+        entry.pendingAssistantText = entry.pendingAssistantText.slice(start + '<think>'.length)
+        entry.insideReasoning = true
+        continue
+      }
+      const protectedSuffix = tagPrefixSuffixLength(entry.pendingAssistantText, '<think>')
+      visible += entry.pendingAssistantText.slice(0, entry.pendingAssistantText.length - protectedSuffix)
+      entry.pendingAssistantText = protectedSuffix ? entry.pendingAssistantText.slice(-protectedSuffix) : ''
+      break
+    }
+    if (visible) this.publish(sessionId, { type: 'assistant.delta', data: { text: visible } })
+  }
+
+  private flushAssistantText(sessionId: string, entry: LiveAgent): void {
+    if (entry.insideReasoning) { entry.pendingAssistantText = ''; return }
+    const text = entry.pendingAssistantText
+    entry.pendingAssistantText = ''
+    if (text) this.publish(sessionId, { type: 'assistant.delta', data: { text } })
+  }
+
+  private agentFor(sessionId: string) {
+    const entry = this.live.get(sessionId)
+    return entry ? this.ctx.agents.get(entry.agentId as SessionId) : undefined
+  }
+}
+
+function tagPrefixSuffixLength(value: string, tag: string): number {
+  const limit = Math.min(value.length, tag.length - 1)
+  for (let size = limit; size > 0; size -= 1) if (value.slice(-size).toLowerCase() === tag.slice(0, size)) return size
+  return 0
+}
+
+/** The tool result is a rendered message rather than a private tool value. */
+export function draftFromToolResult(content: unknown): { assetId: string; revision: string; title: string } | undefined {
+  const candidates = textFragments(content)
+  // Most Harness tool results contain a text block with the original JSON.
+  // Keep the serialized fallback for providers that wrap that text differently.
+  candidates.push(JSON.stringify(content).replace(/\\"/g, '"'))
+  for (const value of candidates) {
+    const assetId = /"assetId"\s*:\s*"([a-z][a-z0-9-]{2,62})"/.exec(value)?.[1]
+    const revision = /"revision"\s*:\s*"(rev-\d{4})"/.exec(value)?.[1]
+    if (!assetId || !revision) continue
+    const title = /"displayName"\s*:\s*"([^"\\]{1,180})"/.exec(value)?.[1] ?? 'AI 数据看板'
+    return { assetId, revision, title }
+  }
+  return undefined
+}
+
+function textFragments(value: unknown): string[] {
+  if (typeof value === 'string') return [value]
+  if (Array.isArray(value)) return value.flatMap(textFragments)
+  if (value && typeof value === 'object') return Object.values(value).flatMap(textFragments)
+  return []
 }
 
 function publicMessage(value: string): string { return value.replace(/[\r\n]+/g, ' ').slice(0, 180) }

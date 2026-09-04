@@ -7,7 +7,10 @@
         workspaceId: local-demo
         libraryAdapter: filesystem
         allowDevWrites: false
-        libraryRoot: ./dsh-workbench-library
+        # Keep the plugin on the user's established profile library.  A relative
+        # path is resolved from the DSH process directory (often the user home),
+        # which previously split historical boards across two libraries.
+        libraryRoot: C:/Users/Administrator/.dsh/profiles/web/dsh-workbench-library
 
     - id: dsh-workbench-openmetadata-semantic-mcp
       name: '@deepseek-ai/dsh-mcp-client'

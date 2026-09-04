@@ -32,6 +32,7 @@ const REVISION = /^rev-\d{4}$/
 // Resolve from this module so an installed plugin never depends on the DSH host cwd.
 const DATA_AGENT_LOGO_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '../local-app/assets/data-agent-logo-black.png')
 const THREE_MODULE_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '../../node_modules/three/build/three.module.js')
+const THREE_CORE_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '../../node_modules/three/build/three.core.js')
 
 function json(response: ServerResponse, status: number, value: unknown, headers: Record<string, string> = {}): void {
   response.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers })
@@ -46,7 +47,7 @@ function sse(response: ServerResponse, event: DashboardRunEvent | NativeDashboar
 function required(value: unknown, name: string): string { if (typeof value !== 'string' || !value.trim()) throw new Error(`${name.toUpperCase()}_REQUIRED`); return value.trim() }
 function mapping(value: unknown): DashboardFieldMapping { return !value || typeof value !== 'object' || Array.isArray(value) ? {} : Object.fromEntries(Object.entries(value).filter(([, v]) => typeof v === 'string' && v.trim()).map(([k, v]) => [k, (v as string).trim()])) }
 function template(value: unknown): 'content-ops-v1' | 'finance-pnl-v1' | 'supply-sales-v1' | 'sku-operations-v1' { if (value === 'content-ops-v1' || value === 'finance-pnl-v1' || value === 'supply-sales-v1' || value === 'sku-operations-v1') return value; throw new Error('TEMPLATE_INVALID') }
-function status(error: unknown): number { const message = error instanceof Error ? error.message : 'UNKNOWN_ERROR'; return error instanceof OpenMetadataMcpError ? error.statusCode : /REQUIRED|INVALID|TOO_LARGE|CSV_|DATA_|ASSET_ID|MAPPING_|CONFIRMATION|DASHBOARD_PLAN|HISTORY_/.test(message) ? 400 : /NOT_FOUND/.test(message) ? 404 : 500 }
+function status(error: unknown): number { const message = error instanceof Error ? error.message : 'UNKNOWN_ERROR'; return error instanceof OpenMetadataMcpError ? error.statusCode : /REQUIRED|INVALID|TOO_LARGE|CSV_|DATA_|ASSET_ID|MAPPING_|CONFIRMATION|PUBLISH_|RELEASE_|PREVIEW_|DASHBOARD_PLAN|HISTORY_/.test(message) ? 400 : /NOT_FOUND/.test(message) ? 404 : 500 }
 const TEMPLATE_SELECTION_COOKIE = 'dsh-workbench-design-template'
 function cookieValue(request: IncomingMessage, name: string): string | undefined { return request.headers.cookie?.split(';').map(value => value.trim()).find(value => value.startsWith(`${name}=`))?.slice(name.length + 1) }
 function selectionCookie(templateId: string): string { return `${TEMPLATE_SELECTION_COOKIE}=${encodeURIComponent(templateId)}; Path=/; Max-Age=28800; SameSite=Strict; HttpOnly` }
@@ -73,6 +74,7 @@ function isWorkbenchPageNavigation(request: IncomingMessage, url: URL): boolean 
     || url.pathname === '/dsh-workbench/templates'
     || url.pathname === '/dsh-workbench/assets/data-agent-logo-black.png'
     || url.pathname === '/dsh-workbench/assets/three.module.js'
+    || url.pathname === '/dsh-workbench/assets/three.core.js'
     || /^\/dsh-workbench\/assets\/[a-z][a-z0-9-]{2,62}\/rev-\d{4}\/(?:dashboard|source)\.html$/.test(url.pathname)
 }
 
@@ -90,6 +92,23 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
   const omd = new OpenMetadataSemanticHttpClient()
   const plans = new Map<string, { plan: DashboardPlan; csv: string }>()
   const planCsv = new Map<string, string>()
+  const datasetForUpload = async (uploadId: string): Promise<HeadlessDatasetContext> => {
+    const upload = await uploads.readCsv(uploadId)
+    let dataset: HeadlessDatasetContext = { filePath: upload.filePath, fileName: upload.fileName }
+    // An invalid profile must not make the already-validated upload unusable.
+    try {
+      const analysis = analyzeCsv(upload.csv)
+      dataset = {
+        ...dataset,
+        rowCount: analysis.rowCount,
+        fieldCount: analysis.headers.length,
+        fields: analysis.headers.slice(0, 12),
+        dateFields: analysis.fields.filter(field => field.inferredType === 'date').map(field => field.name).slice(0, 6),
+        numberFields: analysis.fields.filter(field => field.inferredType === 'number').map(field => field.name).slice(0, 6),
+      }
+    } catch { /* keep the verified file attached without a derived profile */ }
+    return dataset
+  }
   const runs = modelAnalyzer ? new NativeDashboardRunService(modelAnalyzer, library, (assetId, revision) => `/dsh-workbench/assets/${assetId}/${revision}/dashboard.html`) : undefined
   const guarded = (handler: (request: IncomingMessage, response: ServerResponse, url: URL) => Promise<void> | void) => ({ kind: 'prefix' as const, path: '/dsh-workbench', handler: async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     const url = new URL(request.url ?? '/', 'http://127.0.0.1')
@@ -105,6 +124,7 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
     guarded((_request, response, url) => {
       if (url.pathname === '/dsh-workbench/assets/data-agent-logo-black.png') return readFile(DATA_AGENT_LOGO_PATH).then(value => png(response, value))
       if (url.pathname === '/dsh-workbench/assets/three.module.js') return readFile(THREE_MODULE_PATH, 'utf8').then(value => javascript(response, value))
+      if (url.pathname === '/dsh-workbench/assets/three.core.js') return readFile(THREE_CORE_PATH, 'utf8').then(value => javascript(response, value))
       if (url.pathname === '/dsh-workbench' || url.pathname === '/dsh-workbench/templates') return page(response, renderLocalWorkbenchPage({ apiBase: API, initialPage: url.pathname.endsWith('/templates') ? 'templates' : 'new' }).replaceAll("fetch('/api/", `fetch('${API}/`).replaceAll('/assets/', '/dsh-workbench/assets/'))
       if (url.pathname.startsWith('/dsh-workbench/assets/')) return asset(_request, response, url)
       return json(response, 404, { error: 'ROUTE_NOT_FOUND' })
@@ -119,11 +139,33 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
           return json(response, 200, { history: await history.write(body.history) })
         }
         if (request.method === 'GET' && url.pathname === `${API}/dashboards`) {
-          const dashboards = await Promise.all((await library.listAssets()).map(async asset => {
-            const stored = await library.readRevision(asset.assetId, asset.latestRevision)
-            return toDashboardSummary(asset, `/dsh-workbench/assets/${encodeURIComponent(asset.assetId)}/${asset.latestRevision}/dashboard.html`, stored.model)
+          const includeDrafts = url.searchParams.get('includeDrafts') === 'true'
+          const dashboards = await Promise.all((await library.listAssets()).filter(asset => Boolean(includeDrafts ? asset.latestRevision : asset.releasedRevision)).map(async asset => {
+            const revision = asset.releasedRevision ?? asset.latestRevision!
+            const stored = await library.readRevision(asset.assetId, revision)
+            return toDashboardSummary({ ...asset, displayName: stored.manifest.displayName }, `/dsh-workbench/assets/${encodeURIComponent(asset.assetId)}/${revision}/dashboard.html`, stored.model)
           }))
           return json(response, 200, { dashboards })
+        }
+        const dashboardDelete = new RegExp(`^${API.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/dashboards/([a-z][a-z0-9-]{2,62})$`).exec(url.pathname)
+        if (request.method === 'DELETE' && dashboardDelete) {
+          const body = await readJson(request)
+          if (body.confirmed !== true) throw new Error('DELETE_CONFIRMATION_REQUIRED')
+          if (!library.deleteAsset) throw new Error('DASHBOARD_DELETE_UNSUPPORTED')
+          await library.deleteAsset(dashboardDelete[1])
+          return json(response, 200, { deleted: true, assetId: dashboardDelete[1] })
+        }
+        const draftAction = new RegExp(`^${API.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/dashboard-drafts/([a-z][a-z0-9-]{2,62})/(rev-\\d{4})/(preview|release)$`).exec(url.pathname)
+        if (request.method === 'POST' && draftAction) {
+          const [, assetId, revision, action] = draftAction
+          if (action === 'preview') {
+            const stored = await library.preview(assetId, revision)
+            return json(response, 200, { revision: stored.revision, previewUrl: `/dsh-workbench/assets/${encodeURIComponent(assetId)}/${revision}/dashboard.html` })
+          }
+          const body = await readJson(request)
+          if (body.confirmed !== true) throw new Error('PUBLISH_CONFIRMATION_REQUIRED')
+          const release = await library.release(assetId, revision, { approvalId: `user-confirmed:${randomUUID()}` })
+          return json(response, 200, { release, dashboardUrl: `/dsh-workbench/assets/${encodeURIComponent(assetId)}/${release.revision}/dashboard.html` })
         }
         if (request.method === 'POST' && url.pathname === `${API}/analyze`) {
           const body = await readJson(request)
@@ -181,34 +223,27 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
           if (!headlessAgents) throw new Error('DASHBOARD_AGENT_NOT_CONFIGURED')
           const body = await readJson(request)
           const uploadId = typeof body.uploadId === 'string' ? body.uploadId : undefined
-          let dataset: HeadlessDatasetContext | undefined
-          if (uploadId) {
-            const upload = await uploads.readCsv(uploadId)
-            dataset = { filePath: upload.filePath, fileName: upload.fileName }
-            // Keep an uploaded file attachable even if its CSV profile cannot
-            // be inferred. The agent receives the verified file identity, while
-            // the UI simply omits the optional field summary.
-            try {
-              const analysis = analyzeCsv(upload.csv)
-              dataset = {
-                ...dataset,
-                rowCount: analysis.rowCount,
-                fieldCount: analysis.headers.length,
-                fields: analysis.headers.slice(0, 12),
-                dateFields: analysis.fields.filter(field => field.inferredType === 'date').map(field => field.name).slice(0, 6),
-                numberFields: analysis.fields.filter(field => field.inferredType === 'number').map(field => field.name).slice(0, 6),
-              }
-            } catch { /* file stays attached without a derived profile */ }
-          }
+          const dataset = uploadId ? await datasetForUpload(uploadId) : undefined
           return json(response, 201, { sessionId: await headlessAgents.create(dataset) })
         }
         const dashboardAgentMessage = new RegExp(`^${API.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/dashboard-agent-sessions/([a-f0-9-]{36})/messages$`).exec(url.pathname)
         if (request.method === 'POST' && dashboardAgentMessage) {
           if (!headlessAgents) throw new Error('DASHBOARD_AGENT_NOT_CONFIGURED')
           const body = await readJson(request)
-          const sessionId = dashboardAgentMessage[1]
+          let sessionId = dashboardAgentMessage[1]
+          // Browser history survives a DSH Web restart while the in-memory
+          // agent map does not. A fresh Agent retains the persisted upload
+          // reference and lets the user continue instead of surfacing a stale
+          // session-id error. The client learns the replacement id through
+          // the normal session.started SSE event below.
+          if (!headlessAgents.exists(sessionId)) {
+            const uploadId = typeof body.uploadId === 'string' ? body.uploadId : undefined
+            sessionId = await headlessAgents.create(uploadId ? await datasetForUpload(uploadId) : undefined)
+          }
           if (!headlessAgents.exists(sessionId)) throw new Error('DASHBOARD_AGENT_SESSION_NOT_FOUND')
           response.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache, no-transform', connection: 'keep-alive', 'x-accel-buffering': 'no' })
+          response.flushHeaders()
+          response.write(': connected\n\n')
           let closed = false
           const close = (): void => { if (closed) return; closed = true; unsubscribe(); response.end() }
           const unsubscribe = headlessAgents.subscribe(sessionId, event => {
