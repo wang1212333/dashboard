@@ -119,12 +119,18 @@ export function apply(ctx: ClientContext): void {
     const sidebar = sidebarRoot()
     entry?.toggleAttribute('data-compact', Boolean(sidebar && sidebar.getBoundingClientRect().width <= 88))
   }
+  const syncWorkbenchUrl = (opened: boolean): void => {
+    const url = new URL(window.location.href)
+    if (opened) url.searchParams.set('workbench', '1')
+    else url.searchParams.delete('workbench')
+    window.history.replaceState(window.history.state, '', url)
+  }
   const close = (): void => {
-    document.documentElement.removeAttribute(ACTIVE); entry?.removeAttribute('data-active')
+    document.documentElement.removeAttribute(ACTIVE); entry?.removeAttribute('data-active'); syncWorkbenchUrl(false)
   }
   const open = (): void => {
     returnFromForeignPluginViews()
-    document.documentElement.setAttribute(ACTIVE, ''); entry?.setAttribute('data-active', 'true')
+    document.documentElement.setAttribute(ACTIVE, ''); entry?.setAttribute('data-active', 'true'); syncWorkbenchUrl(true)
   }
   const toggle = (): void => document.documentElement.hasAttribute(ACTIVE) ? close() : open()
   const ensure = (): void => {
@@ -155,6 +161,7 @@ export function apply(ctx: ClientContext): void {
     }
   }
   const observer = new MutationObserver(ensure); observer.observe(document.body, { childList: true, subtree: true }); ensure()
+  if (new URL(window.location.href).searchParams.get('workbench') === '1') open()
   document.addEventListener('click', event => {
     const target = event.target as HTMLElement | null
     if (target?.closest('[class*="sessionRow"],[class*="projectRow"],[class*="newSession"]')) close()
@@ -296,6 +303,8 @@ function safeAssistantText(text: string): string | undefined {
     .replace(/<think>[\s\S]*?<\/think>/gi, '')
     .replace(/```[\s\S]*?```/g, '')
     .trim()
+  // Error documents from an upstream HTTP call are not a user-facing answer.
+  if (/(?:^|[\r\n])\s*(?:[45]\d{2}\s+)?<!doctype\s+html\b/i.test(cleaned.slice(0, 2_048))) return undefined
   if (!cleaned) return undefined
   return cleaned.slice(0, 1_200) + (cleaned.length > 1_200 ? '…' : '')
 }

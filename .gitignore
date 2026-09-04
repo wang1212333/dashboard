@@ -13,6 +13,8 @@
 **/assets/*/revisions/
 **/assets/*/release.json
 **/assets/*/asset.json
+# Local workbench transcripts can contain uploaded business data and are never source artifacts.
+dsh-workbench-library/history/
 
 # Local configuration and diagnostic files
 .env

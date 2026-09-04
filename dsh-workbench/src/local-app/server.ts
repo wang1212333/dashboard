@@ -24,6 +24,7 @@ const MAX_CSV_BYTES = 20 * 1024 * 1024
 const MAX_BODY_BYTES = MAX_CSV_BYTES + 512 * 1024
 const REVISION = /^rev-\d{4}$/
 const DATA_AGENT_LOGO_PATH = resolve(dirname(fileURLToPath(import.meta.url)), 'assets/data-agent-logo-black.png')
+const JUMP_TO_LATEST_ICON_PATH = resolve(dirname(fileURLToPath(import.meta.url)), 'assets/jump-to-latest-chevron.png')
 const THREE_MODULE_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '../../node_modules/three/build/three.module.js')
 const THREE_CORE_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '../../node_modules/three/build/three.core.js')
 
@@ -137,6 +138,7 @@ export function createLocalWorkbenchServer(options: LocalWorkbenchAppOptions): S
     try {
       if (request.method === 'GET' && url.pathname === '/') return html(response, renderLocalWorkbenchPage())
       if (request.method === 'GET' && url.pathname === '/assets/data-agent-logo-black.png') return readFile(DATA_AGENT_LOGO_PATH).then(value => png(response, value))
+      if (request.method === 'GET' && url.pathname === '/assets/jump-to-latest-chevron.png') return readFile(JUMP_TO_LATEST_ICON_PATH).then(value => png(response, value))
       if (request.method === 'GET' && url.pathname === '/assets/three.module.js') return readFile(THREE_MODULE_PATH, 'utf8').then(value => javascript(response, value))
       if (request.method === 'GET' && url.pathname === '/assets/three.core.js') return readFile(THREE_CORE_PATH, 'utf8').then(value => javascript(response, value))
       if (request.method === 'GET' && url.pathname === '/api/history') return json(response, 200, { history: await history.read() })

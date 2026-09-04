@@ -31,6 +31,7 @@ const ASSET = /^[a-z][a-z0-9-]{2,62}$/
 const REVISION = /^rev-\d{4}$/
 // Resolve from this module so an installed plugin never depends on the DSH host cwd.
 const DATA_AGENT_LOGO_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '../local-app/assets/data-agent-logo-black.png')
+const JUMP_TO_LATEST_ICON_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '../local-app/assets/jump-to-latest-chevron.png')
 const THREE_MODULE_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '../../node_modules/three/build/three.module.js')
 const THREE_CORE_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '../../node_modules/three/build/three.core.js')
 
@@ -73,6 +74,7 @@ function isWorkbenchPageNavigation(request: IncomingMessage, url: URL): boolean 
   return url.pathname === '/dsh-workbench'
     || url.pathname === '/dsh-workbench/templates'
     || url.pathname === '/dsh-workbench/assets/data-agent-logo-black.png'
+    || url.pathname === '/dsh-workbench/assets/jump-to-latest-chevron.png'
     || url.pathname === '/dsh-workbench/assets/three.module.js'
     || url.pathname === '/dsh-workbench/assets/three.core.js'
     || /^\/dsh-workbench\/assets\/[a-z][a-z0-9-]{2,62}\/rev-\d{4}\/(?:dashboard|source)\.html$/.test(url.pathname)
@@ -123,6 +125,7 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
   return [
     guarded((_request, response, url) => {
       if (url.pathname === '/dsh-workbench/assets/data-agent-logo-black.png') return readFile(DATA_AGENT_LOGO_PATH).then(value => png(response, value))
+      if (url.pathname === '/dsh-workbench/assets/jump-to-latest-chevron.png') return readFile(JUMP_TO_LATEST_ICON_PATH).then(value => png(response, value))
       if (url.pathname === '/dsh-workbench/assets/three.module.js') return readFile(THREE_MODULE_PATH, 'utf8').then(value => javascript(response, value))
       if (url.pathname === '/dsh-workbench/assets/three.core.js') return readFile(THREE_CORE_PATH, 'utf8').then(value => javascript(response, value))
       if (url.pathname === '/dsh-workbench' || url.pathname === '/dsh-workbench/templates') return page(response, renderLocalWorkbenchPage({ apiBase: API, initialPage: url.pathname.endsWith('/templates') ? 'templates' : 'new' }).replaceAll("fetch('/api/", `fetch('${API}/`).replaceAll('/assets/', '/dsh-workbench/assets/'))
@@ -230,6 +233,14 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
         if (request.method === 'POST' && dashboardAgentMessage) {
           if (!headlessAgents) throw new Error('DASHBOARD_AGENT_NOT_CONFIGURED')
           const body = await readJson(request)
+          // Older workbench documents persist in an open browser tab while a
+          // local plugin is rebuilt. They receive text deltas but their base
+          // renderer does not paint `stream.output`. Keep a temporary visual
+          // mirror in the already-supported tool lane for those documents;
+          // current documents declare version 2 and render normal prose only.
+          const legacyTextRenderer = body.clientRenderVersion !== 2
+          let legacyPublicText = ''
+          const legacyReplyCallId = 'legacy-public-reply'
           let sessionId = dashboardAgentMessage[1]
           // Browser history survives a DSH Web restart while the in-memory
           // agent map does not. A fresh Agent retains the persisted upload
@@ -245,14 +256,51 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
           response.flushHeaders()
           response.write(': connected\n\n')
           let closed = false
-          const close = (): void => { if (closed) return; closed = true; unsubscribe(); response.end() }
+          let responseTimeout: ReturnType<typeof setTimeout> | undefined
+          const armIdleTimeout = (): void => {
+            if (responseTimeout) clearTimeout(responseTimeout)
+            responseTimeout = setTimeout(() => {
+              if (closed) return
+              sse(response, { type: 'agent.error', data: { message: '回答服务长时间未返回任何进度，请检查模型连接后重试。' } })
+              headlessAgents.cancel(sessionId)
+              close()
+            }, 180_000)
+          }
+          const close = (): void => {
+            if (closed) return
+            closed = true
+            if (responseTimeout) clearTimeout(responseTimeout)
+            unsubscribe()
+            response.end()
+          }
           const unsubscribe = headlessAgents.subscribe(sessionId, event => {
             if (closed) return
+            if (legacyTextRenderer && event.type === 'assistant.delta' && event.data.text) {
+              legacyPublicText += event.data.text
+              sse(response, {
+                type: 'tool.started',
+                data: { callId: legacyReplyCallId, title: `智能体回复：${legacyPublicText}` },
+              })
+            }
+            if (legacyTextRenderer && legacyPublicText && (event.type === 'agent.completed' || event.type === 'agent.stopped' || event.type === 'agent.error')) {
+              sse(response, {
+                type: 'tool.completed',
+                data: { callId: legacyReplyCallId, title: `智能体回复：${legacyPublicText}`, failed: event.type === 'agent.error' },
+              })
+            }
             sse(response, event)
+            // This is an inactivity timeout, not a total-run deadline. Every
+            // public text chunk and tool event keeps a healthy long response
+            // alive so the page can render the complete streaming result.
+            armIdleTimeout()
             if (event.type === 'agent.completed' || event.type === 'agent.stopped' || event.type === 'agent.error') close()
           })
-          response.once('close', () => { if (!closed) { closed = true; unsubscribe() } })
+          response.once('close', close)
           sse(response, { type: 'session.started', data: { sessionId } })
+          // Only terminate a connection that stays entirely silent. A normal
+          // Agent run may need more than 30 seconds to read a large CSV and
+          // stream its public answer.
+          armIdleTimeout()
           try { headlessAgents.send(sessionId, required(body.prompt, 'prompt')) } catch (error) { sse(response, { type: 'agent.error', data: { message: error instanceof Error ? error.message : '无法发送消息' } }); close() }
           return
         }

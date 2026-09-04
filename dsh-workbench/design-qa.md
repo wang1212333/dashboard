@@ -88,3 +88,46 @@ final result: blocked
 3. 初始侧栏历史列表会无限延长并显示 `sample` 等技术名；已限制默认显示 5 条并提供展开入口。
 
 final result: passed
+
+---
+
+# 跳转到最新消息图标视觉核对（2026-09-04）
+
+## 对比对象
+
+- Source visual truth: `C:/Users/Administrator/AppData/Local/Temp/codex-clipboard-fd822d8f-6ed7-4658-8361-cfa9708047d2.png`（200 × 200，透明底深灰向下折线）。
+- Implementation: `http://127.0.0.1:3080/?workbench=1` 的实际 DSH 宿主内嵌工作台，以及 `http://127.0.0.1:3080/dsh-workbench/assets/jump-to-latest-chevron.png` 的生产资源路由。
+- Viewport: 1280 × 720 的应用内浏览器视口。
+- State: 空闲状态确认控件保持隐藏；运行状态由生成页面代码与定位测试确认，仅在用户离开最新消息且仍在生成时显示。
+
+## Findings
+
+- 无 P0/P1/P2/P3 未解决项。
+- 初次宿主验收发现资源地址被重复补成 `/dsh-workbench/dsh-workbench/assets/...`；已改为分段拼接以避开宿主路径重写，复验确认页面中不再存在重复路径。
+
+## 五项保真核对
+
+- Fonts and typography: 控件已移除文字标签，不引入额外字体或文案尺寸变化。
+- Spacing and layout rhythm: 图标按钮以输入框实时矩形为基准，水平居中，图标底边与输入框顶边固定保留 12px；附件导致输入框高度变化时会重新计算。
+- Colors and visual tokens: 使用用户提供图片中的原始深灰图形，按钮背景透明，仅在悬停时使用现有浅灰反馈。
+- Image quality and asset fidelity: 直接复用用户提供的透明 PNG，不使用自绘近似图标；源路由返回 200 与 `image/png`。
+- Copy and content: 保留 `跳转到最新消息` 的无障碍名称和原有点击滚动逻辑，不显示可见文字。
+
+## Primary interactions tested
+
+1. 实际宿主重启后可正常载入工作台 iframe。
+2. 实际页面引用 `jump-to-latest-chevron.png`，旧的“查看最新内容”文字按钮不再存在。
+3. 图标定位公式使用输入框实时 `getBoundingClientRect()`，并以 `innerHeight - rect.top + 12` 计算底部位置。
+4. 图标资源分别通过宿主路由与独立本地应用路由提供。
+5. 构建通过；本地页面测试 14/14 通过，其中覆盖图标资源加载和定位规则。
+6. 实际宿主页面源码确认最终只生成一次 `/dsh-workbench` 前缀，测试请求结束后空闲态不残留箭头或测试会话。
+
+## Implementation checklist
+
+- [x] 使用用户提供的向下箭头图片。
+- [x] 控件位于对话输入框上方，不与输入框重叠。
+- [x] 输入框高度或窗口尺寸变化时重新定位。
+- [x] 保留原有跳转到最新消息业务逻辑。
+- [x] 实际宿主重启并完成资源、页面与自动化验证。
+
+final result: passed

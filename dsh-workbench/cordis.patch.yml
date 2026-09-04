@@ -21,8 +21,8 @@
         url: !!js "process.env.OPENMETADATA_MCP_URL || 'https://openmetadata.transsion.com/mcp'"
         headers:
           Authorization: !!js '`Bearer ${process.env.OPENMETADATA_MCP_TOKEN}`'
-        # With a configured credential, refuse to start silently without the
-        # semantic source. This guarantees the analysis agent never runs as if
-        # OpenMetadata were available when discovery actually failed.
-        failOnStartupError: true
+        # OpenMetadata is an optional semantic source. A transient network or
+        # TLS failure must not prevent the local workbench itself from starting.
+        # The connector remains available and is used again once it reconnects.
+        failOnStartupError: false
         toolCallTimeoutMs: 60000
