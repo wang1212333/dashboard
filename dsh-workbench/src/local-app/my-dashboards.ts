@@ -1,7 +1,7 @@
 import { dashboardSeed } from './dashboard-repository.js'
 
 export function myDashboardsSidebarStyles(): string {
-  return `.workbench:has(.my-dashboards) .nav-item[data-page="new"]{background:transparent}.workbench:has(.my-dashboards) .nav-item[data-page="boards"]{background:#f1f1f1;color:#171717}.sidebar-history .history-more{width:100%;height:30px;margin:6px 0 0;border:0;border-radius:6px;background:transparent;color:#666;text-align:left;font:inherit;font-size:12px;cursor:pointer}.sidebar-history .history-more:hover{background:#f4f4f3;color:#171717}`
+  return `.workbench:has(.my-dashboards) .nav-item[data-page="new"]{background:transparent}.workbench:has(.my-dashboards) .nav-item[data-page="boards"]{background:#f1f1f1;color:#171717}`
 }
 
 /** Keeps primary dashboard controls on the same visual row as the scope tabs. */

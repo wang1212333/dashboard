@@ -1,0 +1,6 @@
+.env
+.env.lan
+data-lan
+data
+*.log
+*.test.mjs

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const assets = [
   'data-agent-logo-black.png',
+  'tabler-icons-LICENSE.txt',
   'jump-to-latest-chevron.png',
 ]
 

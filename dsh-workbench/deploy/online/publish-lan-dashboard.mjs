@@ -1,0 +1,20 @@
+import { readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+const folder = 'C:/Users/Administrator/.dsh/profiles/web/dsh-workbench-library/assets/channel-ops-dashboard';
+const asset = JSON.parse(await readFile(join(folder,'asset.json'),'utf8'));
+let html = await readFile(join(folder,'revisions',asset.latestRevision,'dashboard.html'),'utf8');
+const dependency = 'https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js';
+const marker = `<script src="${dependency}"></script>`;
+if (!html.includes(marker)) throw new Error('Chart dependency changed');
+const response = await fetch(dependency,{signal:AbortSignal.timeout(30000)});
+if (!response.ok) throw new Error('Unable to package ECharts');
+const script = await response.text();
+html = html.replace(marker,()=>'<script>'+script.replace(/<\/script/gi,'<\\/script')+'</script>');
+const post = async (path, data) => {
+  const response = await fetch('http://127.0.0.1:18087'+path,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+process.env.ADMIN_TOKEN},body:JSON.stringify(data)});
+  const result = await response.json(); if (!response.ok) throw new Error(result.error); return result;
+};
+await post('/api/releases',{assetId:'channel-ops-trial',revision:'rev-0001',title:asset.displayName+'（试用快照）',html});
+const shared = await post('/api/shares',{assetId:'channel-ops-trial',revision:'rev-0001',days:7});
+await writeFile('lan-dashboard-share.json',JSON.stringify(shared,null,2));
+console.log(JSON.stringify({url:shared.url,expiresAt:shared.expiresAt}));

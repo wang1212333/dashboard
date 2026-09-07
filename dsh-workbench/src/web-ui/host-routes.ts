@@ -1,3 +1,6 @@
+import { ConversationShareStore, renderConversationShare } from '../local-app/conversation-share.js'
+import { publishOnline } from '../local-app/online-publish.js'
+import { dashboardShareState, createDashboardShare, revokeDashboardShare, dashboardFeishu } from '../local-app/dashboard-sharing.js'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
@@ -73,6 +76,7 @@ function isWorkbenchPageNavigation(request: IncomingMessage, url: URL): boolean 
   if (request.method !== 'GET' || !isLoopback(request)) return false
   return url.pathname === '/dsh-workbench'
     || url.pathname === '/dsh-workbench/templates'
+    || /^\/dsh-workbench\/share\/[a-f0-9]{48}$/.test(url.pathname)
     || url.pathname === '/dsh-workbench/assets/data-agent-logo-black.png'
     || url.pathname === '/dsh-workbench/assets/jump-to-latest-chevron.png'
     || url.pathname === '/dsh-workbench/assets/three.module.js'
@@ -89,6 +93,7 @@ type WorkbenchModel = {
 export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?: WorkbenchModel, uploadRoot = './dsh-workbench-library', headlessAgents?: HeadlessDashboardAgentService): WebRoute[] {
   const uploads = new AgentUploadStore(uploadRoot)
   const history = new WorkbenchHistoryStore(resolve(uploadRoot, 'history', 'build-history.json'))
+  const shares = new ConversationShareStore(resolve(uploadRoot, 'history', 'shares'))
   const designTemplates = new DesignTemplateLibrary({ cacheRoot: uploadRoot })
   const templateCovers = new TemplateCoverLibrary({ cacheRoot: uploadRoot })
   const omd = new OpenMetadataSemanticHttpClient()
@@ -129,6 +134,8 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
       if (url.pathname === '/dsh-workbench/assets/three.module.js') return readFile(THREE_MODULE_PATH, 'utf8').then(value => javascript(response, value))
       if (url.pathname === '/dsh-workbench/assets/three.core.js') return readFile(THREE_CORE_PATH, 'utf8').then(value => javascript(response, value))
       if (url.pathname === '/dsh-workbench' || url.pathname === '/dsh-workbench/templates') return page(response, renderLocalWorkbenchPage({ apiBase: API, initialPage: url.pathname.endsWith('/templates') ? 'templates' : 'new' }).replaceAll("fetch('/api/", `fetch('${API}/`).replaceAll('/assets/', '/dsh-workbench/assets/'))
+      const sharePage = /^\/dsh-workbench\/share\/([a-f0-9]{48})$/.exec(url.pathname)
+      if (_request.method === 'GET' && sharePage) return shares.read(sharePage[1]).then(snapshot => snapshot ? page(response, renderConversationShare(snapshot)) : json(response, 404, { error: '分享不存在' }))
       if (url.pathname.startsWith('/dsh-workbench/assets/')) return asset(_request, response, url)
       return json(response, 404, { error: 'ROUTE_NOT_FOUND' })
     }),
@@ -136,6 +143,30 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
       if (!isTrustedBrowser(request)) return json(response, 403, { error: 'FORBIDDEN' })
       const url = new URL(request.url ?? '/', 'http://127.0.0.1')
       try {
+        const feishuRoute = /^\/api\/dsh-workbench\/dashboards\/([a-z][a-z0-9-]{2,62})\/feishu$/.exec(url.pathname)
+        if(feishuRoute) {
+          if(!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(request.socket.remoteAddress||'') || (request.headers.origin && request.headers.origin !== `http://${request.headers.host}`)) return json(response,403,{error:'FORBIDDEN'})
+          if(!['GET','POST'].includes(request.method||'')) return json(response,405,{error:'METHOD_NOT_ALLOWED'})
+          return json(response,200,await dashboardFeishu(feishuRoute[1],request.method!,request.method==='POST'?await readJson(request):{}))
+        }
+        const sharing = /^\/api\/dsh-workbench\/dashboards\/([a-z][a-z0-9-]{2,62})\/shares$/.exec(url.pathname)
+        if (sharing) {
+          if (request.headers.origin && request.headers.origin !== `http://${request.headers.host}`) return json(response,403,{error:'FORBIDDEN'})
+          if (request.method === 'GET') return json(response,200,await dashboardShareState(library,sharing[1]))
+          const body=await readJson(request)
+          if (request.method === 'POST') return json(response,200,await createDashboardShare(library,sharing[1],body.days))
+          if (request.method === 'DELETE') return json(response,200,await revokeDashboardShare(sharing[1],body.token))
+        }
+        const onlinePublish = /^\/api\/dsh-workbench\/dashboards\/([a-z][a-z0-9-]{2,62})\/publish-online$/.exec(url.pathname)
+        if (request.method === 'POST' && onlinePublish) {
+          const body = await readJson(request)
+          if (body.confirmed !== true) throw new Error('PUBLISH_CONFIRMATION_REQUIRED')
+          return json(response, 200, await publishOnline(library, onlinePublish[1]))
+        }
+        if (request.method === 'POST' && url.pathname === `${API}/history/share`) {
+          const body = await readJson(request), shared = await shares.create(body.item)
+          return json(response, 201, { url: '/dsh-workbench/share/' + shared.token, html: renderConversationShare(shared.snapshot) })
+        }
         if (request.method === 'GET' && url.pathname === `${API}/history`) return json(response, 200, { history: await history.read() })
         if (request.method === 'PUT' && url.pathname === `${API}/history`) {
           const body = await readJson(request)

@@ -1,0 +1,6 @@
+.env
+.env.lan
+lan-*.json
+data/
+data-lan/
+*.log

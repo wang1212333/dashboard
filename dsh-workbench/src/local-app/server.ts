@@ -1,3 +1,6 @@
+import { ConversationShareStore, renderConversationShare } from './conversation-share.js'
+import { publishOnline } from './online-publish.js'
+import { dashboardShareState, createDashboardShare, revokeDashboardShare, dashboardFeishu } from './dashboard-sharing.js'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
@@ -118,6 +121,7 @@ export function createLocalWorkbenchServer(options: LocalWorkbenchAppOptions): S
   const library = new FilesystemKnowledgeLibrary(options.libraryRoot)
   const uploads = new AgentUploadStore(options.libraryRoot)
   const history = new WorkbenchHistoryStore(resolve(options.libraryRoot, 'history', 'build-history.json'))
+  const shares = new ConversationShareStore(resolve(options.libraryRoot, 'history', 'shares'))
   const designTemplates = new DesignTemplateLibrary({ cacheRoot: options.libraryRoot })
   const templateCovers = new TemplateCoverLibrary({ cacheRoot: options.libraryRoot })
   const omd = new OpenMetadataSemanticHttpClient()
@@ -141,6 +145,15 @@ export function createLocalWorkbenchServer(options: LocalWorkbenchAppOptions): S
       if (request.method === 'GET' && url.pathname === '/assets/jump-to-latest-chevron.png') return readFile(JUMP_TO_LATEST_ICON_PATH).then(value => png(response, value))
       if (request.method === 'GET' && url.pathname === '/assets/three.module.js') return readFile(THREE_MODULE_PATH, 'utf8').then(value => javascript(response, value))
       if (request.method === 'GET' && url.pathname === '/assets/three.core.js') return readFile(THREE_CORE_PATH, 'utf8').then(value => javascript(response, value))
+      const sharePage = /^\/share\/([a-f0-9]{48})$/.exec(url.pathname)
+      if (request.method === 'GET' && sharePage) {
+        const snapshot = await shares.read(sharePage[1])
+        return snapshot ? html(response, renderConversationShare(snapshot)) : json(response, 404, { error: '分享不存在' })
+      }
+      if (request.method === 'POST' && url.pathname === '/api/history/share') {
+        const body = await readJson(request), shared = await shares.create(body.item)
+        return json(response, 201, { url: '/share/' + shared.token, html: renderConversationShare(shared.snapshot) })
+      }
       if (request.method === 'GET' && url.pathname === '/api/history') return json(response, 200, { history: await history.read() })
       if (request.method === 'PUT' && url.pathname === '/api/history') {
         const body = await readJson(request)
@@ -154,6 +167,26 @@ export function createLocalWorkbenchServer(options: LocalWorkbenchAppOptions): S
           return toDashboardSummary({ ...asset, displayName: stored.manifest.displayName }, `/assets/${encodeURIComponent(asset.assetId)}/${revision}/dashboard.html`, stored.model)
         }))
         return json(response, 200, { dashboards })
+      }
+      const feishuRoute = /^\/api\/dashboards\/([a-z][a-z0-9-]{2,62})\/feishu$/.exec(url.pathname)
+        if(feishuRoute) {
+          if(!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(request.socket.remoteAddress||'') || (request.headers.origin && request.headers.origin !== `http://${request.headers.host}`)) return json(response,403,{error:'FORBIDDEN'})
+          if(!['GET','POST'].includes(request.method||'')) return json(response,405,{error:'METHOD_NOT_ALLOWED'})
+          return json(response,200,await dashboardFeishu(feishuRoute[1],request.method!,request.method==='POST'?await readJson(request):{}))
+        }
+        const sharing = /^\/api\/dashboards\/([a-z][a-z0-9-]{2,62})\/shares$/.exec(url.pathname)
+      if (sharing) {
+        if (request.headers.origin && request.headers.origin !== `http://${request.headers.host}`) return json(response,403,{error:'FORBIDDEN'})
+        if (request.method === 'GET') return json(response,200,await dashboardShareState(library,sharing[1]))
+        const body=await readJson(request)
+        if (request.method === 'POST') return json(response,200,await createDashboardShare(library,sharing[1],body.days))
+        if (request.method === 'DELETE') return json(response,200,await revokeDashboardShare(sharing[1],body.token))
+      }
+      const onlinePublish = /^\/api\/dashboards\/([a-z][a-z0-9-]{2,62})\/publish-online$/.exec(url.pathname)
+      if (request.method === 'POST' && onlinePublish) {
+        const body = await readJson(request)
+        if (body.confirmed !== true) throw new Error('PUBLISH_CONFIRMATION_REQUIRED')
+        return json(response, 200, await publishOnline(library, onlinePublish[1]))
       }
       const dashboardDelete = /^\/api\/dashboards\/([a-z][a-z0-9-]{2,62})$/.exec(url.pathname)
       if (request.method === 'DELETE' && dashboardDelete) {

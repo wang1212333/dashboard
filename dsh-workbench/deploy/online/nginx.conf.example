@@ -1,0 +1,11 @@
+# Put this location inside the platform's existing HTTPS server block.
+# Keep the path unchanged when PUBLIC_URL includes a prefix such as /dashboards.
+location /dashboards/ {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto https;
+    client_max_body_size 25m;
+    proxy_read_timeout 60s;
+    # Share URLs carry access tokens. Do not put them in access logs.
+    access_log off;
+}
