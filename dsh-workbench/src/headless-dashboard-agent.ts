@@ -23,6 +23,7 @@ export type HeadlessDatasetContext = {
 
 export type DashboardAgentStreamEvent =
   | { type: 'agent.status'; data: { message: string } }
+  | { type: 'dataset.ready'; data: { fileName: string; rowCount?: number; fieldCount?: number; fields?: string[]; dateFields?: string[]; numberFields?: string[] } }
   | { type: 'assistant.delta'; data: { text: string } }
   | { type: 'tool.started'; data: { callId: string; title: string } }
   | { type: 'tool.completed'; data: { callId: string; title: string; failed: boolean } }
@@ -125,13 +126,10 @@ export class HeadlessDashboardAgentService {
     entry.insideReasoning = false
     this.publish(sessionId, { type: 'agent.status', data: { message: '已连接智能体，正在准备回复' } })
     const datasetContext = entry.dataset
-    // The upload profile is already computed by the trusted server-side
-    // ingestion path.  Send it as the first *public* SSE payload rather than
-    // making the page wait for a model turn (which can spend time selecting
-    // tools before it writes any user-visible prose).  This is factual upload
-    // feedback, not hidden reasoning and not a replacement for the Agent's
-    // subsequent streamed answer.
-    if (datasetContext) this.publish(sessionId, { type: 'assistant.delta', data: { text: publicDatasetOverview(datasetContext) } })
+    // Upload metadata is UI status, not assistant-authored prose. Keep it on a
+    // dedicated event so every assistant.delta still comes from the selected
+    // DSH model and remains a genuine streamed response.
+    if (datasetContext) this.publish(sessionId, { type: 'dataset.ready', data: publicDatasetStatus(datasetContext) })
     agent.followup(createUserMessage({
       content: datasetContext
         ? [
@@ -362,17 +360,14 @@ function describeDataset(dataset: HeadlessDatasetContext): string {
   return lines.join('\n')
 }
 
-/** A compact, immediately visible counterpart to the model-only context. */
-function publicDatasetOverview(dataset: HeadlessDatasetContext): string {
-  const lines = [
-    `已读取数据文件「${dataset.fileName}」。`,
-  ]
-  if (typeof dataset.rowCount === 'number' && typeof dataset.fieldCount === 'number') {
-    lines.push(`当前识别到 ${dataset.rowCount.toLocaleString()} 行、${dataset.fieldCount} 个字段。`)
+/** Browser-safe upload metadata; the server path never leaves this process. */
+function publicDatasetStatus(dataset: HeadlessDatasetContext): Extract<DashboardAgentStreamEvent, { type: 'dataset.ready' }>['data'] {
+  return {
+    fileName: dataset.fileName,
+    rowCount: dataset.rowCount,
+    fieldCount: dataset.fieldCount,
+    fields: dataset.fields,
+    dateFields: dataset.dateFields,
+    numberFields: dataset.numberFields,
   }
-  if (dataset.fields?.length) lines.push(`字段：${dataset.fields.slice(0, 8).join('、')}。`)
-  if (dataset.fieldCount === 1 && dataset.fields?.[0] && /confidential|internal business|保密|声明/i.test(dataset.fields[0])) {
-    lines.push('该唯一字段看起来像文件声明而非业务字段；我会继续确认是否存在分隔符或前置说明行导致的解析偏差。')
-  }
-  return `${lines.join('\n')}\n\n`
 }

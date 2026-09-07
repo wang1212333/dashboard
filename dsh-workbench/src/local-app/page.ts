@@ -203,6 +203,7 @@ function behaviorV2(): string {
     const data=event.data||{};
     if(event.type==='session.started'){state.dashboardAgentSessionId=data.sessionId||state.dashboardAgentSessionId;state.activity='已连接看板智能体';}
     else if(event.type==='agent.status'){state.activity=data.message||'正在准备回复';}
+    else if(event.type==='dataset.ready'){const fact=uploadedFact(data);if(fact){state.stream.profileFact=fact;state.stream.tools=[fact,...(state.stream.tools||[]).filter(item=>item.id!==fact.id)];}state.activity='数据文件已就绪，正在等待智能体回答';}
     else if(event.type==='assistant.delta'){state.stream.output=(state.stream.output||'')+(data.text||'');state.activity='正在回答';}
     else if(event.type==='tool.started'){toolFor('headless:'+data.callId,data.title||'执行看板工具','running');state.activity=data.title||'正在执行工具';}
     else if(event.type==='tool.completed'){toolFor('headless:'+data.callId,data.title||'看板工具',data.failed?'failed':'completed');state.activity=data.failed?'工具执行失败':(data.title||'工具执行完成');}
@@ -247,16 +248,17 @@ function behaviorV2(): string {
     if(!prompt)return;
     state.draft='';state.file=null;state.attachOpen=false;state.requestId=crypto.randomUUID();beginLiveStream(prompt,attachmentName);
      try{
-       if(!state.dashboardAgentSessionId){
-        let uploadId=state.dashboardAgentUploadId;
-        if(selectedFile&&!uploadId){
+       let uploadId=state.dashboardAgentUploadId;
+       if(selectedFile){
           const csv=await selectedFile.text();
           const uploadResponse=await fetch(api+'/uploads',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({csv,fileName:selectedFile.name})});
           const upload=await uploadResponse.json();
           if(!uploadResponse.ok||typeof upload.uploadId!=='string')throw new Error(upload.error||'数据文件上传失败');
           uploadId=upload.uploadId;state.dashboardAgentUploadId=uploadId;
+          state.dashboardAgentSessionId=null;
           const fact=uploadedFact(upload.profile);if(fact)state.stream.profileFact=fact;state.stream.tools=fact?[fact]:[];
-        }
+       }
+       if(!state.dashboardAgentSessionId){
         const createdResponse=await fetch(api+'/dashboard-agent-sessions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(uploadId?{uploadId}: {})});
         const created=await createdResponse.json();
         if(!createdResponse.ok||typeof created.sessionId!=='string')throw new Error(created.error||'无法创建看板智能体会话');

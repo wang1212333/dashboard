@@ -69,6 +69,8 @@ describe('local import app', () => {
     expect(page).toContain('data-release-draft')
     expect(page).toContain("fetch(api+'/dashboard-agent-sessions/'+encodeURIComponent(state.dashboardAgentSessionId)+'/messages'")
     expect(page).toContain('const csv=await selectedFile.text()')
+    expect(page).toContain("event.type==='dataset.ready'")
+    expect(page).toContain('state.dashboardAgentSessionId=null')
   })
 
   it('renders syntactically valid template-library behavior with an explicit selection endpoint', () => {

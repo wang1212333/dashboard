@@ -10,7 +10,7 @@ describe('headless dashboard agent output safety', () => {
     expect(isLeakedHttpErrorHtml('该数据集包含 6 个字段，其中 3 个是日期字段。')).toBe(false)
   })
 
-  it('streams the server-verified upload profile before the model starts its turn', async () => {
+  it('publishes upload metadata as status without impersonating assistant prose', async () => {
     const handlers = new Map<string, Function>()
     const agent = { id: 'agent-1', followup: vi.fn(), cancel: vi.fn() }
     const ctx = {
@@ -28,7 +28,13 @@ describe('headless dashboard agent output safety', () => {
 
     service.send(sessionId, '有哪些数据信息')
 
-    expect(events).toContainEqual({ type: 'assistant.delta', data: { text: '已读取数据文件「sales.csv」。\n当前识别到 12 行、2 个字段。\n字段：日期、销售额。\n\n' } })
+    expect(events).toContainEqual({
+      type: 'dataset.ready',
+      data: {
+        fileName: 'sales.csv', rowCount: 12, fieldCount: 2, fields: ['日期', '销售额'], dateFields: undefined, numberFields: undefined,
+      },
+    })
+    expect(events.some(event => event.type === 'assistant.delta')).toBe(false)
     expect(agent.followup).toHaveBeenCalledOnce()
   })
 
