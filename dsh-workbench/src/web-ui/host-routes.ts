@@ -21,6 +21,7 @@ import { DesignTemplateLibrary, toBrowserTemplate, withDesignTemplate } from '..
 import { TemplateCoverLibrary } from '../design-library/template-cover-library.js'
 import { renderLocalWorkbenchPage } from '../local-app/page.js'
 import { toDashboardSummary } from '../local-app/dashboard-repository.js'
+import { dashboardCatalog, dashboardVersions } from '../local-app/dashboard-catalog.js'
 import { WorkbenchHistoryStore } from '../local-app/history-store.js'
 import { confirmDashboardPlan, planFromAnalysis } from '../dashboard-agent/workflow.js'
 import type { DashboardPlan, DashboardPlanConfirmation } from '../dashboard-agent/contracts.js'
@@ -175,13 +176,11 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
         }
         if (request.method === 'GET' && url.pathname === `${API}/dashboards`) {
           const includeDrafts = url.searchParams.get('includeDrafts') === 'true'
-          const dashboards = await Promise.all((await library.listAssets()).filter(asset => Boolean(includeDrafts ? asset.latestRevision : asset.releasedRevision)).map(async asset => {
-            const revision = asset.releasedRevision ?? asset.latestRevision!
-            const stored = await library.readRevision(asset.assetId, revision)
-            return toDashboardSummary({ ...asset, displayName: stored.manifest.displayName }, `/dsh-workbench/assets/${encodeURIComponent(asset.assetId)}/${revision}/dashboard.html`, stored.model)
-          }))
+          const dashboards = await dashboardCatalog(library, '/dsh-workbench', includeDrafts, nativeSessions)
           return json(response, 200, { dashboards })
         }
+        const versions = /^\/api\/dsh-workbench\/dashboards\/([a-z][a-z0-9-]{2,62})\/versions$/.exec(url.pathname)
+        if (request.method === 'GET' && versions) return json(response, 200, await dashboardVersions(library, versions[1], '/dsh-workbench'))
         const dashboardDelete = new RegExp(`^${API.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/dashboards/([a-z][a-z0-9-]{2,62})$`).exec(url.pathname)
         if (request.method === 'DELETE' && dashboardDelete) {
           const body = await readJson(request)
@@ -275,7 +274,12 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
         const nativeDelivery = new RegExp(`^${API}/native-sessions/((?:session-)?[a-f0-9-]{36})$`).exec(url.pathname)
         if (request.method === 'GET' && nativeDelivery) {
           const link = await nativeSessions.read(nativeDelivery[1])
-          return json(response, link ? 200 : 404, link ? { sessionId: link.sessionId, uploadId: link.uploadId, uploadIds: link.uploadIds, draft: link.draft } : { error: 'NATIVE_SESSION_LINK_NOT_FOUND' })
+          let draft: (NonNullable<typeof link>['draft'] & { previewed: boolean; released: boolean }) | undefined
+          if (link?.draft) {
+            const stored = await library.readRevision(link.draft.assetId, link.draft.revision)
+            draft = { ...link.draft, previewed: stored.revision.stage !== 'draft', released: stored.asset.releasedRevision === link.draft.revision }
+          }
+          return json(response, link ? 200 : 404, link ? { sessionId: link.sessionId, uploadId: link.uploadId, uploadIds: link.uploadIds, draft } : { error: 'NATIVE_SESSION_LINK_NOT_FOUND' })
         }
         if (request.method === 'POST' && url.pathname === `${API}/dashboard-agent-sessions`) {
           if (!headlessAgents) throw new Error('DASHBOARD_AGENT_NOT_CONFIGURED')

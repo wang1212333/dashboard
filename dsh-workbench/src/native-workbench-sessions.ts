@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile, unlink } from 'node:fs/promises'
+import { mkdir, readFile, readdir, rename, writeFile, unlink } from 'node:fs/promises'
 import { setTimeout as delay } from 'node:timers/promises'
 import { resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
@@ -56,6 +56,15 @@ export class NativeWorkbenchSessions {
   }
   async recordDraft(sessionId: string, draft: NativeDraft): Promise<void> {
     await this.update(sessionId, link => link ? { ...link, draft } : undefined)
+  }
+  async draftSources(): Promise<Record<string, string>> {
+    const sources: Record<string, string> = {}
+    const files = await readdir(this.root).catch((error: NodeJS.ErrnoException) => { if (error.code === 'ENOENT') return []; throw error })
+    for (const file of files.filter(file => /^(?:session-)?[a-f0-9-]+\.json$/i.test(file))) {
+      const link = await this.read(file.slice(0, -5))
+      if (link?.draft) sources[link.draft.assetId] = link.sessionId
+    }
+    return sources
   }
   /** Immutable per-submission snapshots; never infer a running turn's file from the latest upload. */
   async prepare(sessionId: string, input: NativeTaskInput): Promise<boolean> {

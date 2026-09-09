@@ -10,7 +10,10 @@ const record = (value: unknown): Record<string, unknown> => value && typeof valu
 export function conversationSnapshot(value: unknown): ConversationSnapshot {
   const item = record(value)
   if (typeof item.title !== 'string' || !item.title.trim()) throw new Error('SHARE_INVALID')
-  const turns = Array.isArray(item.turns) && item.turns.length ? item.turns : [{ stream: item.stream }]
+  const turns = Array.isArray(item.messages) ? item.messages.map(value => {
+    const message = record(value)
+    return { stream: message.role === 'user' ? { question: message.text } : message.role === 'assistant' ? { output: message.text } : {} }
+  }) : Array.isArray(item.turns) && item.turns.length ? item.turns : [{ stream: item.stream }]
   const messages: Message[] = []
   for (const turn of turns) {
     const wrapper = record(turn), stream = record(wrapper.stream ?? turn)

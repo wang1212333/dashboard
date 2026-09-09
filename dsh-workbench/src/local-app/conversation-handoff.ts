@@ -3,8 +3,35 @@
  * composer for the next turn. The base shell is intentionally shared with the
  * DSH iframe host, so these replacements cover both its host and local paths.
  */
+// Match the existing shell's inline SVG icon convention; no additional icon runtime.
+function dashboardDraftCardStyles(): string {
+  return `
+section.dashboard-draft-actions{box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;width:100%;height:56px;min-height:56px;gap:16px;margin:0;padding:0 16px;border:1px solid rgba(31,31,31,.08);border-radius:10px;background:rgba(255,255,255,.72);backdrop-filter:blur(16px) saturate(108%);-webkit-backdrop-filter:blur(16px) saturate(108%);box-shadow:0 1px 2px rgba(0,0,0,.02),0 6px 18px rgba(0,0,0,.035);flex-direction:row}
+section.dashboard-draft-actions>.draft-info:first-child{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+.composer-wrapper>section.dashboard-draft-actions{margin:0 0 8px}
+.dashboard-draft-actions .draft-info>svg{width:16px;height:16px;flex:none;color:#262626}
+.dashboard-draft-actions .draft-copy{min-width:0;flex:1}
+section.dashboard-draft-actions strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:400;line-height:20px;color:#262626}
+.dashboard-draft-actions .draft-metadata{display:flex;align-items:center;gap:18px;min-width:0}
+section.dashboard-draft-actions .draft-metadata span{font-size:12px;font-weight:400;line-height:18px;color:#767B84;white-space:nowrap;flex-shrink:0}
+section.dashboard-draft-actions .draft-metadata .draft-source-file{min-width:0;flex-shrink:1;overflow:hidden;text-overflow:ellipsis}
+section.dashboard-draft-actions>.draft-buttons{display:flex;align-items:center;gap:8px;flex-shrink:0}
+section.dashboard-draft-actions button{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:32px;padding:0 12px;border:1px solid rgba(31,31,31,.12);border-radius:8px;background:rgba(255,255,255,.62);color:#262626;font-size:13px;font-weight:400;line-height:18px;white-space:nowrap;box-shadow:none}
+section.dashboard-draft-actions button[data-preview-draft]{width:76px}
+section.dashboard-draft-actions button svg{width:14px;height:14px;flex:none;stroke-width:1.5}
+section.dashboard-draft-actions button.publish-draft{background:#1F1F1F;border:0;color:#fff;font-weight:500}
+@supports not ((backdrop-filter:blur(16px)) or (-webkit-backdrop-filter:blur(16px))){section.dashboard-draft-actions{background:#F8F8F7}}
+`
+}
+
+function draftIcon(paths: string): string {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`
+}
+
 export function applyConversationHandoff(page: string): string {
   return page
+    .replace('</style>', `${dashboardDraftCardStyles()}</style>`)
+    .replace('</body>', `<script>(()=>{function placeDraftCard(){const composer=document.querySelector('.composer-wrapper.chat-composer');if(!composer||composer.querySelector('.dashboard-draft-actions'))return;const cards=document.querySelectorAll('.chat-thread .dashboard-draft-actions'),card=cards[cards.length-1];if(card)composer.prepend(card)}new MutationObserver(placeDraftCard).observe(document.getElementById('page-content'),{childList:true,subtree:true});placeDraftCard()})()</script></body>`)
     .replaceAll(
       "'<div class=\"chat-thread\"><div class=\"user-message\">'+escapeHtml(state.stream.question)+'</div>'+agentAnswer()+'</div>'",
       "'<div class=\"chat-thread\">'+conversationTurnsHtml()+'</div>'",
@@ -82,7 +109,7 @@ export function applyConversationHandoff(page: string): string {
     )
     .replaceAll(
       "if(s.error)html+='<p class=\"agent-block agent-error\">'+escapeHtml(s.error)+'</p>';",
-      "if(s.dashboardDraft){const draft=s.dashboardDraft;html+='<section class=\"dashboard-draft-actions\"><div><strong>'+escapeHtml(draft.title||'看板草稿')+'</strong><span>'+escapeHtml(draft.revision)+' · '+(draft.released?'已发布':draft.previewed?'已预览，等待发布确认':'仅草稿，尚未进入我的看板')+'</span></div><div><button type=\"button\" data-preview-draft=\"'+escapeHtml(draft.assetId)+'\" data-draft-revision=\"'+escapeHtml(draft.revision)+'\" '+(draft.released?'disabled':'')+'>预览草稿</button><button type=\"button\" class=\"publish-draft\" data-release-draft=\"'+escapeHtml(draft.assetId)+'\" data-draft-revision=\"'+escapeHtml(draft.revision)+'\" '+(!draft.previewed||draft.released?'disabled':'')+'>'+ (draft.released?'已发布到我的看板':'确认发布')+'</button></div></section>'}if(s.error)html+='<p class=\"agent-block agent-error\">'+escapeHtml(s.error)+'</p>';",
+      `if(s.dashboardDraft){const draft=s.dashboardDraft;html+='<section class="dashboard-draft-actions"><div class="draft-info">${draftIcon('<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>')}<div class="draft-copy"><strong>'+escapeHtml(draft.title||'看板草稿')+'</strong><div class="draft-metadata"><span>'+escapeHtml(draft.revision)+'</span><span>'+(draft.released?'已发布':'待发布')+'</span><span class="draft-source-file">'+escapeHtml(s.attachmentName||'')+'</span></div></div></div><div class="draft-buttons"><button type="button" data-preview-draft="'+escapeHtml(draft.assetId)+'" data-draft-revision="'+escapeHtml(draft.revision)+'" '+(draft.released?'disabled':'')+'>${draftIcon('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>')}预览</button><button type="button" class="publish-draft" data-release-draft="'+escapeHtml(draft.assetId)+'" data-draft-revision="'+escapeHtml(draft.revision)+'" '+(!draft.previewed||draft.released?'disabled':'')+'>${draftIcon('<path d="M13 5h6v6M19 5l-9 9M5 9v10h10"/>')}'+(draft.released?'已发布到我的看板':'确认发布')+'</button></div></section>'}if(s.error)html+='<p class="agent-block agent-error">'+escapeHtml(s.error)+'</p>';`,
     )
     .replace(
       "document.getElementById('open-session')?.addEventListener('click',()=>{if(state.sessionId)window.parent.postMessage({source:'dsh-workbench',kind:'open-session',requestId:state.requestId,sessionId:state.sessionId},location.origin)})",
@@ -114,7 +141,7 @@ export function applyConversationHandoff(page: string): string {
     )
     .replace(
       "document.getElementById('upload-button')?.addEventListener('click',event=>{event.preventDefault();event.stopImmediatePropagation();state.attachOpen=event.currentTarget.getAttribute('aria-expanded')!=='true';closeSearch();render()})",
-      "document.getElementById('upload-button')?.addEventListener('click',event=>{event.preventDefault();event.stopImmediatePropagation();state.attachOpen=event.currentTarget.getAttribute('aria-expanded')!=='true';closeSearch();render()});if(!state.attachDismissBound){state.attachDismissBound=true;document.addEventListener('click',event=>{if(!state.attachOpen)return;const target=event.target;if(target instanceof Element&&target.closest('#attachment-popover,#upload-button'))return;state.attachOpen=false;render()})}",
+      "document.getElementById('upload-button')?.addEventListener('click',event=>{event.preventDefault();event.stopImmediatePropagation();state.attachOpen=event.currentTarget.getAttribute('aria-expanded')!=='true';closeSearch();render()});if(!state.attachDismissBound){state.attachDismissBound=true;document.addEventListener('click',event=>{if(!state.attachOpen)return;if(!document.getElementById('attachment-popover')){state.attachOpen=false;return;}const target=event.target;if(target instanceof Element&&target.closest('#attachment-popover,#upload-button'))return;state.attachOpen=false;render()})}",
     )
     .replace(
       "state.stream={live:true,question:state.stream?.question||'已恢复看板搭建任务',name:true,planText:",

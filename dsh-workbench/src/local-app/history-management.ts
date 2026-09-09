@@ -54,9 +54,22 @@ function openHistoryMenu(id,anchor){
 }
 function openHistoryShare(item){
   const snapshot=JSON.parse(JSON.stringify(item)),dialog=document.createElement('dialog');dialog.className='history-share';dialog.setAttribute('aria-labelledby','history-share-title');
-  const turns=Array.isArray(snapshot.turns)&&snapshot.turns.length?snapshot.turns:[{stream:snapshot.stream}],messages=[];turns.forEach(turn=>{const stream=turn.stream||turn;if(stream?.question)messages.push({role:'用户',text:stream.question});if(stream?.output)messages.push({role:'通用数据智能体',text:stream.output})});
+  const native=Boolean(snapshot.stream?.nativeSessionId||snapshot.turns?.some(turn=>turn.stream?.nativeSessionId)),turns=native?[]:Array.isArray(snapshot.turns)&&snapshot.turns.length?snapshot.turns:[{stream:snapshot.stream}],messages=[];turns.forEach(turn=>{const stream=turn.stream||turn;if(stream?.question)messages.push({role:'用户',text:stream.question});if(stream?.output)messages.push({role:'通用数据智能体',text:stream.output})});
   dialog.innerHTML='<header><h2 id="history-share-title">分享对话</h2><button type="button" data-share-close aria-label="关闭分享">关闭</button></header><h3>'+escapeHtml(item.title)+'</h3><p>仅分享以下文字快照，不含附件、工具执行记录或看板访问权限。后续消息不会自动同步。</p><div class="share-preview">'+messages.map(message=>'<strong>'+escapeHtml(message.role)+'</strong><p>'+escapeHtml(message.text)+'</p>').join('')+'</div><p>本机链接仅限当前电脑访问。发给他人请下载对话副本，接收者可直接用浏览器打开。</p><div data-share-result></div><p role="alert" data-share-error></p><footer><button type="button" class="primary" data-share-create '+(!messages.length?'disabled':'')+'>生成分享快照</button></footer>';
   if(!messages.length)dialog.querySelector('[data-share-error]').textContent='这条对话暂无可分享的文字内容。';document.body.append(dialog);dialog.showModal();dialog.querySelector('[data-share-close]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>{dialog.remove();historyFocus(item.sessionId)});dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close()}});
+  if(native){
+    dialog.querySelector('[data-share-error]').textContent='正在读取完整原生会话…';
+    const requestId=crypto.randomUUID(),timer=setTimeout(()=>finish('原生记录读取超时，请关闭后重试。'),30000);
+    const finish=error=>{clearTimeout(timer);window.removeEventListener('message',receive);if(dialog.isConnected&&error)dialog.querySelector('[data-share-error]').textContent=error;};
+    const receive=event=>{const data=event.data;if(event.origin!==location.origin||event.source!==window.parent||data?.source!=='dsh-workbench'||data.kind!=='native-conversation-exported'||data.requestId!==requestId)return;
+      if(data.error){finish(data.error);return;}
+      snapshot.messages=data.messages;const preview=dialog.querySelector('.share-preview');preview.replaceChildren();
+      for(const message of data.messages||[]){const label=document.createElement('strong'),body=document.createElement('p');label.textContent=message.role==='user'?'用户':'通用数据智能体';body.textContent=message.text;preview.append(label,body);}
+      dialog.querySelector('[data-share-create]').disabled=!data.messages?.length;dialog.querySelector('[data-share-error]').textContent='';finish();
+    };
+    window.addEventListener('message',receive);dialog.addEventListener('close',()=>finish(),{once:true});
+    window.parent.postMessage({source:'dsh-workbench',kind:'export-native-conversation',requestId,sessionId:snapshot.sessionId},location.origin);
+  }
   dialog.querySelector('[data-share-create]').onclick=async event=>{const button=event.target;button.disabled=true;button.textContent='正在生成…';try{const api=location.pathname.startsWith('/dsh-workbench')?'/api/dsh-workbench':'/api',response=await fetch(api+'/history/share',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({item:snapshot})});if(!response.ok)throw new Error('生成失败，请重试');const data=await response.json();if(!dialog.isConnected)return;const url=new URL(data.url,location.origin).href;
     dialog.querySelector('[data-share-result]').innerHTML='<label><p>本机只读链接</p><input aria-label="本机只读链接" readonly value="'+escapeHtml(url)+'"></label>';dialog.querySelector('footer').innerHTML='<button type="button" data-share-copy>复制本机链接</button><button type="button" class="primary" data-share-download>下载对话副本</button>';
     dialog.querySelector('[data-share-copy]').onclick=async()=>{try{await navigator.clipboard.writeText(url);dialog.querySelector('[data-share-copy]').textContent='已复制'}catch{dialog.querySelector('input').select();dialog.querySelector('[data-share-error]').textContent='自动复制未获允许，请复制已选中的链接。'}};

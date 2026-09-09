@@ -6,9 +6,12 @@
 import { submitNativeSession } from './native-session-bridge.js'
 import { installNativeConversationSurface } from './native-conversation-surface.js'
 import { createNativeSurfacePanel } from './native-surface-theme.js'
+import { exportNativeConversation } from './native-conversation-export.js'
 export const inject = ['sessions', 'workspaces', 'slots']
 
 type SessionDriver = {
+  open?(): Promise<void>
+  loadOlder?(): Promise<void>
   rename(title: string): Promise<unknown>
   prompt(content: readonly unknown[], mode: 'queue'): Promise<{ ok: true } | { ok: false; error: unknown }>
   cancel?(): Promise<{ ok?: boolean; accepted?: boolean; error?: unknown } | unknown>
@@ -16,8 +19,9 @@ type SessionDriver = {
   subscribe?(listener: () => void): () => void
 }
 type AssistantBlock = { kind?: unknown; text?: unknown; callId?: unknown; name?: unknown; argsRaw?: unknown }
-type ConversationNode = { kind?: unknown; seq?: unknown; blocks?: readonly AssistantBlock[]; callId?: unknown; call?: { name?: unknown; argsRaw?: unknown } | null; isError?: unknown }
+type ConversationNode = { kind?: unknown; seq?: unknown; content?: readonly { type?: unknown; text?: unknown }[]; blocks?: readonly AssistantBlock[]; callId?: unknown; call?: { name?: unknown; argsRaw?: unknown } | null; isError?: unknown }
 type ConversationSnapshot = {
+  hasMore?: boolean
   running?: boolean
   nodes?: readonly ConversationNode[]
   partial?: { blocks?: readonly AssistantBlock[] } | null
@@ -44,6 +48,7 @@ type WorkspacesFace = {
 }
 type ClientContext = { get(name: string): unknown }
 type WorkbenchMessage = {
+  route?: unknown
   workspaceId?: unknown
   source?: unknown
   kind?: unknown
@@ -170,7 +175,13 @@ export function apply(ctx: ClientContext): void {
     const center = centerColumn()
     if (center && !view?.isConnected) {
       view ??= document.createElement('div'); view.dataset.dshWorkbenchView = ''; view.dataset.dshPlugin = 'workbench'
-      frame ??= document.createElement('iframe'); frame.dataset.dshWorkbenchFrame = ''; frame.title = 'DSH 看板工作台'; frame.src = '/dsh-workbench?embedded=2' + (new URL(location.href).searchParams.has('nativeSession') ? '&nativeSession=' + encodeURIComponent(new URL(location.href).searchParams.get('nativeSession')!) : '')
+      frame ??= document.createElement('iframe'); frame.dataset.dshWorkbenchFrame = ''; frame.title = 'DSH 看板工作台'
+      const outer = new URL(location.href), saved = outer.searchParams.get('workbenchRoute')
+      let restored: URL | undefined
+      try { restored = saved ? new URL(saved, location.origin) : undefined } catch { /* Ignore an invalid saved route. */ }
+      frame.src = restored?.origin === location.origin && ['/dsh-workbench', '/dsh-workbench/templates'].includes(restored.pathname)
+        ? restored.pathname + restored.search
+        : '/dsh-workbench?embedded=2' + (outer.searchParams.has('nativeSession') ? '&nativeSession=' + encodeURIComponent(outer.searchParams.get('nativeSession')!) : '')
       view.replaceChildren(frame)
       if (getComputedStyle(center).position === 'static') center.style.position = 'relative'
       center.append(view)
@@ -249,6 +260,14 @@ export function apply(ctx: ClientContext): void {
     if (event.origin !== window.location.origin || event.source !== frame?.contentWindow) return
     const message = event.data as WorkbenchMessage
     if (message?.source !== 'dsh-workbench') return
+    if (message.kind === 'workbench-route' && typeof message.route === 'string') {
+      const route = new URL(message.route, location.origin)
+      if (route.origin !== location.origin || !['/dsh-workbench', '/dsh-workbench/templates'].includes(route.pathname)) return
+      const url = new URL(location.href); url.searchParams.set('workbenchRoute', route.pathname + route.search)
+      if (!route.searchParams.has('nativeSession')) url.searchParams.delete('nativeSession')
+      history.replaceState(history.state, '', url)
+      return
+    }
     if (message.kind === 'workbench-ready') {
       const items = workspaces.list.getSnapshot().items.filter(item => item.path && !/[\\/]agent-inputs[\\/]/i.test(item.path))
       const current = sessions.list.getSnapshot(); const cwd = current.current ? current.byId[current.current]?.cwd : undefined
@@ -259,6 +278,14 @@ export function apply(ctx: ClientContext): void {
     if (message.kind === 'native-seat-ready') { ensure(); return }
     if (message.kind === 'new-native-task') { nativeSessionId = undefined; nativeUnsubscribe?.(); nativeSurface.setTarget(null); const url = new URL(location.href); url.searchParams.delete('nativeSession'); history.replaceState(history.state, '', url); return }
     if (typeof message.requestId !== 'string') return
+    if (message.kind === 'export-native-conversation' && typeof message.sessionId === 'string') {
+      const requestId = message.requestId, sessionId = message.sessionId
+      const driver = sessions.binding(sessionId)?.session
+      void (driver ? exportNativeConversation(driver) : Promise.reject(new Error('原生会话尚未加载，请先打开该历史会话后重试。'))).then(messages => {
+        frame?.contentWindow?.postMessage({ source: 'dsh-workbench', kind: 'native-conversation-exported', requestId, messages }, location.origin)
+      }).catch(error => frame?.contentWindow?.postMessage({ source: 'dsh-workbench', kind: 'native-conversation-exported', requestId, error: String(error) }, location.origin))
+      return
+    }
     if (message.kind === 'open-session' && typeof message.sessionId === 'string') {
       void observeNative(message.sessionId).catch(error => frame?.contentWindow?.postMessage({ source: 'dsh-workbench', requestId: message.requestId, kind: 'history-load-failed', message: String(error) }, location.origin))
       return

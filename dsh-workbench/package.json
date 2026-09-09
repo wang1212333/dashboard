@@ -30,7 +30,8 @@
     "local:app": "node dist-dashboard/local-app/cli.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "typecheck:core": "tsc -p tsconfig.core.json --noEmit",
-    "test": "vitest run",
+    "test": "vitest run tests",
+    "test:sharing": "node --test deploy/online/server.test.mjs deploy/online/feishu.test.mjs",
     "test:watch": "vitest"
   },
   "dsh": {

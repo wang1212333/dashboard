@@ -15,6 +15,7 @@ import { DesignTemplateLibrary, toBrowserTemplate, withDesignTemplate } from '..
 import { TemplateCoverLibrary } from '../design-library/template-cover-library.js'
 import { renderLocalWorkbenchPage } from './page.js'
 import { toDashboardSummary } from './dashboard-repository.js'
+import { dashboardCatalog, dashboardVersions } from './dashboard-catalog.js'
 import { WorkbenchHistoryStore } from './history-store.js'
 import { confirmDashboardPlan, isDashboardSpec, planFromAnalysis } from '../dashboard-agent/workflow.js'
 import type { DashboardPlan, DashboardPlanConfirmation } from '../dashboard-agent/contracts.js'
@@ -161,13 +162,11 @@ export function createLocalWorkbenchServer(options: LocalWorkbenchAppOptions): S
       }
       if (request.method === 'GET' && url.pathname === '/api/dashboards') {
         const includeDrafts = url.searchParams.get('includeDrafts') === 'true'
-        const dashboards = await Promise.all((await library.listAssets()).filter(asset => Boolean(includeDrafts ? asset.latestRevision : asset.releasedRevision)).map(async asset => {
-          const revision = asset.releasedRevision ?? asset.latestRevision!
-          const stored = await library.readRevision(asset.assetId, revision)
-          return toDashboardSummary({ ...asset, displayName: stored.manifest.displayName }, `/assets/${encodeURIComponent(asset.assetId)}/${revision}/dashboard.html`, stored.model)
-        }))
+        const dashboards = await dashboardCatalog(library, '', includeDrafts)
         return json(response, 200, { dashboards })
       }
+      const versions = /^\/api\/dashboards\/([a-z][a-z0-9-]{2,62})\/versions$/.exec(url.pathname)
+      if (request.method === 'GET' && versions) return json(response, 200, await dashboardVersions(library, versions[1], ''))
       const feishuRoute = /^\/api\/dashboards\/([a-z][a-z0-9-]{2,62})\/feishu$/.exec(url.pathname)
         if(feishuRoute) {
           if(!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(request.socket.remoteAddress||'') || (request.headers.origin && request.headers.origin !== `http://${request.headers.host}`)) return json(response,403,{error:'FORBIDDEN'})
