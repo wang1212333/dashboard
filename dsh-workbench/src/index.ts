@@ -10,6 +10,8 @@ import { registerWorkbenchTools } from './tools.js'
 import { makeWorkbenchWebRoutes } from './web-ui/host-routes.js'
 import { createWorkbenchTracer } from './observability/phoenix.js'
 import { HeadlessDashboardAgentService } from './headless-dashboard-agent.js'
+import { NativeWorkbenchSessions } from './native-workbench-sessions.js'
+import { registerNativeTaskContext } from './native-task-context.js'
 
 export const name = 'dsh-workbench'
 export const inject = ['tools', 'webServer', 'llm', 'agents']
@@ -29,10 +31,12 @@ function register(ctx: Context, config: WorkbenchPluginConfig, identity?: Identi
   const tracer = createWorkbenchTracer()
   const modelAnalyzer = new DshModelAnalyzer(ctx, tracer)
   const uploadRoot = config.libraryRoot ?? './dsh-workbench-library'
-  const headlessAgents = new HeadlessDashboardAgentService(ctx, resolve(uploadRoot))
-  registerWorkbenchTools(ctx, library)
+  const nativeSessions = new NativeWorkbenchSessions(uploadRoot)
+  registerNativeTaskContext(ctx, nativeSessions, uploadRoot)
+  const headlessAgents = new HeadlessDashboardAgentService(ctx, resolve(uploadRoot), nativeSessions)
+  registerWorkbenchTools(ctx, library, nativeSessions)
   ctx.effect(() => {
-    const disposers = makeWorkbenchWebRoutes(library, modelAnalyzer, uploadRoot, headlessAgents).map(route => ctx.webServer.register(route))
+    const disposers = makeWorkbenchWebRoutes(library, modelAnalyzer, uploadRoot, headlessAgents, nativeSessions).map(route => ctx.webServer.register(route))
     return () => { disposers.forEach(dispose => dispose()); void modelAnalyzer.shutdownTracing() }
   }, 'dsh-workbench: same-origin web workbench routes')
 }

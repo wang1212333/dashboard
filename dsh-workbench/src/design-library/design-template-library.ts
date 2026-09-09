@@ -1,3 +1,4 @@
+import { lieflatDetail, lieflatSummaries } from './lieflat-templates.js'
 import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 
@@ -16,6 +17,9 @@ export type DesignTemplateSummary = {
   sourcePath: string
   sourceUrl: string
   contentSha: string
+  provider?: string
+  kind?: 'report' | 'chart'
+  license?: string
 }
 
 export type DesignTemplateDetail = DesignTemplateSummary & {
@@ -95,8 +99,7 @@ export class DesignTemplateLibrary {
   async listResult(): Promise<DesignTemplateCatalogResult> {
     const catalog = await this.readCatalog()
     if (catalog) return { templates: await this.withLocalTemplates(catalog.templates), syncedAt: catalog.syncedAt, cacheStatus: 'cached' }
-    const fresh = await this.sync()
-    return { templates: await this.withLocalTemplates(fresh.templates), syncedAt: fresh.syncedAt, cacheStatus: 'fresh' }
+    return this.syncResult()
   }
 
   async syncResult(): Promise<DesignTemplateCatalogResult> {
@@ -105,7 +108,7 @@ export class DesignTemplateLibrary {
       const fresh = await this.sync()
       return { templates: await this.withLocalTemplates(fresh.templates), syncedAt: fresh.syncedAt, cacheStatus: 'fresh' }
     } catch (error) {
-      if (!cached) throw error
+      if (!cached) return { templates: await this.withLocalTemplates([]), syncedAt: '', cacheStatus: 'stale', warning: '在线风格目录暂时不可用，内置 Lieflat 模板仍可使用。' }
       return {
         templates: await this.withLocalTemplates(cached.templates),
         syncedAt: cached.syncedAt,
@@ -155,6 +158,7 @@ export class DesignTemplateLibrary {
 
   async get(templateId: string): Promise<DesignTemplateDetail> {
     if (!TEMPLATE_ID.test(templateId)) throw new Error('DESIGN_TEMPLATE_ID_INVALID')
+    if (templateId.toLowerCase().startsWith('lieflat-')) return lieflatDetail(templateId.toLowerCase())
     const template = (await this.list()).find(item => item.id === templateId.toLowerCase())
     if (!template) throw new Error('DESIGN_TEMPLATE_NOT_FOUND')
     if (template.sourcePath.startsWith('local:')) {
@@ -191,6 +195,7 @@ export class DesignTemplateLibrary {
 
   /** Curated workbench templates take precedence over the public style catalog. */
   private async withLocalTemplates(templates: DesignTemplateSummary[]): Promise<DesignTemplateSummary[]> {
+    templates = [...await lieflatSummaries(), ...templates.filter(item => !item.id.startsWith('lieflat-'))]
     const id = 'sku-operations'
     if (!await exists(this.localTemplatePath(id))) return templates
     const content = await readFile(this.localTemplatePath(id), 'utf8')
@@ -208,7 +213,7 @@ export class DesignTemplateLibrary {
 
 export function toBrowserTemplate(template: DesignTemplateDetail): BrowserDesignTemplate {
   const { content, ...safe } = template
-  return { ...safe, styleGuide: styleGuide(content) }
+  return { ...safe, styleGuide: template.provider === 'Lieflat Charts' ? content.split('<selected-template-source>')[0].trim() : styleGuide(content) }
 }
 
 /**
@@ -229,5 +234,6 @@ function styleGuide(content: string): string {
 }
 
 export function withDesignTemplate(intent: string, template: DesignTemplateDetail): string {
+  if (template.provider === 'Lieflat Charts') return `${intent.trim()}\n\n用户所选模板：${template.name}\n来源：${template.sourceUrl}\n内容 SHA：${template.contentSha}\n${template.content}`
   return `${intent.trim()}\n\n视觉风格参考（仅用于本次看板的界面设计）：\n- 名称：${template.name}\n- 来源：${template.sourceUrl}\n- 内容 SHA：${template.contentSha}\n- 请遵循其中的色彩、排版、组件和响应式规则；不使用品牌商标、图片或受版权限制的素材。\n\n<design-md>\n${template.content}\n</design-md>`
 }

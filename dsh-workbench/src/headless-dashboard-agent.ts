@@ -7,6 +7,7 @@ import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
 import { defineTool, type JsonValue } from '@deepseek-ai/dsh-tools'
 import { analyzeCsv } from './data-ingestion/csv-profile.js'
+import type { NativeWorkbenchSessions } from './native-workbench-sessions.js'
 
 type ModelRoute = { provider: string; model: string }
 type AgentDefaultModel = { currentSelection(): Partial<ModelRoute> }
@@ -57,7 +58,7 @@ export class HeadlessDashboardAgentService {
   private readonly live = new Map<string, LiveAgent>()
   private readonly sessionByAgentId = new Map<string, string>()
 
-  constructor(private readonly ctx: Context, private readonly defaultCwd: string) {
+  constructor(private readonly ctx: Context, private readonly defaultCwd: string, private readonly nativeSessions?: NativeWorkbenchSessions) {
     ctx.on('session/event', (session, event) => this.forwardSessionEvent(String(session.id), event))
     ctx.on('agent/status', ({ agent, status }) => {
       const sessionId = this.sessionByAgentId.get(String(agent.id))
@@ -282,19 +283,21 @@ export class HeadlessDashboardAgentService {
     this.ctx.tools.register(defineTool({
       name: 'workbench_read_attached_dataset',
       description: 'Read the schema, representative samples, data-quality profile, and dashboard recommendations for the CSV file attached to the current workbench Agent session. Use this before any dashboard analysis when a file is attached. It cannot read arbitrary files.',
-      parameters: {},
+      parameters: { uploadId: { type: 'string', description: 'For native DSH sessions, use the attachment uploadId from the current user request. Only uploads attached to this session are readable.' } },
       output: {
         schema: { type: 'object', additionalProperties: true },
         render: (_args, value) => [{ type: 'text', text: JSON.stringify(value, null, 2) }],
       },
-      execute: async (_args, exec) => {
+      execute: async (args, exec) => {
         const agentId = exec.agent ? String(exec.agent.id) : ''
         const sessionId = this.sessionByAgentId.get(agentId)
-        const dataset = sessionId ? this.live.get(sessionId)?.dataset : undefined
+        if (exec.agent && this.nativeSessions && typeof args.uploadId !== 'string' && (await this.nativeSessions.read(String(exec.agent.session.id)))?.inputs?.length) throw new Error('UPLOAD_ID_REQUIRED: use the uploadId from the current workbench task context, not the latest session upload')
+        const nativeDataset = exec.agent && this.nativeSessions ? await this.nativeSessions.dataset(String(exec.agent.session.id), typeof args.uploadId === 'string' ? args.uploadId : undefined) : undefined
+        const dataset = nativeDataset ?? (sessionId ? this.live.get(sessionId)?.dataset : undefined)
         if (!dataset) throw new Error('ATTACHED_DATASET_NOT_FOUND')
         const csv = await readFile(dataset.filePath, 'utf8')
         const analysis = analyzeCsv(csv)
-        return JSON.parse(JSON.stringify({ fileName: dataset.fileName, ...analysis })) as Record<string, JsonValue>
+        return JSON.parse(JSON.stringify({ fileName: dataset.fileName, filePath: dataset.filePath, ...analysis })) as Record<string, JsonValue>
       },
       presentCall: () => ({ card: 'generic', title: '读取当前会话数据文件', kind: 'read' }),
     }))

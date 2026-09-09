@@ -12,6 +12,7 @@ import type { KnowledgeLibrary } from '../library/knowledge-library.js'
 import { analyzeCsv } from '../data-ingestion/csv-profile.js'
 import type { EnrichedCsvAnalysis } from '../ai/dsh-model-analyzer.js'
 import { AgentUploadStore } from '../data-ingestion/agent-upload-store.js'
+import { NativeWorkbenchSessions } from '../native-workbench-sessions.js'
 import { assertCsvMatchesSnapshot, assertLatestPeriodComplete, assertSkuMetricSemantics, snapshotCsvSource } from '../data-ingestion/source-integrity.js'
 import { DashboardAgentRunService, type DashboardRunEvent } from '../agent-run/dashboard-agent-run.js'
 import { NativeDashboardRunService, type NativeDashboardRunEvent } from '../agent-run/native-dashboard-run.js'
@@ -90,7 +91,7 @@ type WorkbenchModel = {
   generateDashboard(input: { csv: string; fileName: string; businessGoal: string }, signal?: AbortSignal, onTextDelta?: (delta: string) => void): Promise<{ html: string; title: string; summary: string }>
 }
 
-export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?: WorkbenchModel, uploadRoot = './dsh-workbench-library', headlessAgents?: HeadlessDashboardAgentService): WebRoute[] {
+export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?: WorkbenchModel, uploadRoot = './dsh-workbench-library', headlessAgents?: HeadlessDashboardAgentService, nativeSessions = new NativeWorkbenchSessions(uploadRoot)): WebRoute[] {
   const uploads = new AgentUploadStore(uploadRoot)
   const history = new WorkbenchHistoryStore(resolve(uploadRoot, 'history', 'build-history.json'))
   const shares = new ConversationShareStore(resolve(uploadRoot, 'history', 'shares'))
@@ -253,9 +254,33 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
           const fileName = typeof body.fileName === 'string' ? body.fileName : 'dataset.csv'
           return json(response, 201, await uploads.saveCsv(fileName, csv))
         }
+        if (request.method === 'POST' && url.pathname === `${API}/native-session-input`) {
+          const body = await readJson(request)
+          const sessionId = required(body.sessionId, 'sessionId')
+          const uploadId = typeof body.uploadId === 'string' ? body.uploadId : undefined
+          await nativeSessions.bind(sessionId, uploadId)
+          // Never turn a remembered cookie or internal template specification into user speech.
+          const templateId = typeof body.designTemplateId === 'string' ? body.designTemplateId : undefined
+          const selectedTemplate = templateId ? await designTemplates.get(templateId) : undefined
+          required(body.prompt, 'prompt')
+          const prompt = body.prompt as string
+          const created = await nativeSessions.prepare(sessionId, { requestId: required(body.requestId, 'requestId'), prompt, ...(uploadId ? { uploadId } : {}), ...(selectedTemplate ? { templateId, templateInstructions: withDesignTemplate('', selectedTemplate), templateSha: selectedTemplate.contentSha } : {}), ...(body.semanticAsset && typeof body.semanticAsset === 'object' ? { semanticAsset: body.semanticAsset } : {}) })
+          return json(response, 200, { prompt, sessionId, replayed: !created })
+        }
+        if (request.method === 'POST' && url.pathname === `${API}/native-session-input/rejected`) {
+          const body = await readJson(request)
+          await nativeSessions.rejectPrepared(required(body.sessionId, 'sessionId'), required(body.requestId, 'requestId'))
+          return json(response, 200, { ok: true })
+        }
+        const nativeDelivery = new RegExp(`^${API}/native-sessions/((?:session-)?[a-f0-9-]{36})$`).exec(url.pathname)
+        if (request.method === 'GET' && nativeDelivery) {
+          const link = await nativeSessions.read(nativeDelivery[1])
+          return json(response, link ? 200 : 404, link ? { sessionId: link.sessionId, uploadId: link.uploadId, uploadIds: link.uploadIds, draft: link.draft } : { error: 'NATIVE_SESSION_LINK_NOT_FOUND' })
+        }
         if (request.method === 'POST' && url.pathname === `${API}/dashboard-agent-sessions`) {
           if (!headlessAgents) throw new Error('DASHBOARD_AGENT_NOT_CONFIGURED')
           const body = await readJson(request)
+          if (body.mode !== 'background') return json(response, 409, { error: 'NATIVE_SESSION_REQUIRED', message: '交互式对话请使用 DSH 原生会话。Headless 仅用于显式后台任务。' })
           const uploadId = typeof body.uploadId === 'string' ? body.uploadId : undefined
           const dataset = uploadId ? await datasetForUpload(uploadId) : undefined
           return json(response, 201, { sessionId: await headlessAgents.create(dataset) })
@@ -264,6 +289,7 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
         if (request.method === 'POST' && dashboardAgentMessage) {
           if (!headlessAgents) throw new Error('DASHBOARD_AGENT_NOT_CONFIGURED')
           const body = await readJson(request)
+          if (body.mode !== 'background') return json(response, 409, { error: 'NATIVE_SESSION_REQUIRED' })
           // Older workbench documents persist in an open browser tab while a
           // local plugin is rebuilt. They receive text deltas but their base
           // renderer does not paint `stream.output`. Keep a temporary visual
@@ -272,35 +298,15 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
           const legacyTextRenderer = body.clientRenderVersion !== 2
           let legacyPublicText = ''
           const legacyReplyCallId = 'legacy-public-reply'
-          let sessionId = dashboardAgentMessage[1]
-          // Browser history survives a DSH Web restart while the in-memory
-          // agent map does not. A fresh Agent retains the persisted upload
-          // reference and lets the user continue instead of surfacing a stale
-          // session-id error. The client learns the replacement id through
-          // the normal session.started SSE event below.
-          if (!headlessAgents.exists(sessionId)) {
-            const uploadId = typeof body.uploadId === 'string' ? body.uploadId : undefined
-            sessionId = await headlessAgents.create(uploadId ? await datasetForUpload(uploadId) : undefined)
-          }
+          const sessionId = dashboardAgentMessage[1]
           if (!headlessAgents.exists(sessionId)) throw new Error('DASHBOARD_AGENT_SESSION_NOT_FOUND')
           response.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache, no-transform', connection: 'keep-alive', 'x-accel-buffering': 'no' })
           response.flushHeaders()
           response.write(': connected\n\n')
           let closed = false
-          let responseTimeout: ReturnType<typeof setTimeout> | undefined
-          const armIdleTimeout = (): void => {
-            if (responseTimeout) clearTimeout(responseTimeout)
-            responseTimeout = setTimeout(() => {
-              if (closed) return
-              sse(response, { type: 'agent.error', data: { message: '回答服务长时间未返回任何进度，请检查模型连接后重试。' } })
-              headlessAgents.cancel(sessionId)
-              close()
-            }, 180_000)
-          }
           const close = (): void => {
             if (closed) return
             closed = true
-            if (responseTimeout) clearTimeout(responseTimeout)
             unsubscribe()
             response.end()
           }
@@ -320,19 +326,15 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
               })
             }
             sse(response, event)
-            // This is an inactivity timeout, not a total-run deadline. Every
-            // public text chunk and tool event keeps a healthy long response
-            // alive so the page can render the complete streaming result.
-            armIdleTimeout()
             if (event.type === 'agent.completed' || event.type === 'agent.stopped' || event.type === 'agent.error') close()
           })
           response.once('close', close)
           sse(response, { type: 'session.started', data: { sessionId } })
-          // Only terminate a connection that stays entirely silent. A normal
-          // Agent run may need more than 30 seconds to read a large CSV and
-          // stream its public answer.
-          armIdleTimeout()
-          try { headlessAgents.send(sessionId, required(body.prompt, 'prompt')) } catch (error) { sse(response, { type: 'agent.error', data: { message: error instanceof Error ? error.message : '无法发送消息' } }); close() }
+          try {
+            const templateId = typeof body.designTemplateId === 'string' ? body.designTemplateId : cookieValue(request, TEMPLATE_SELECTION_COOKIE)
+            const prompt = templateId ? withDesignTemplate(required(body.prompt, 'prompt'), await designTemplates.get(templateId)) : required(body.prompt, 'prompt')
+            headlessAgents.send(sessionId, prompt)
+          } catch (error) { sse(response, { type: 'agent.error', data: { message: error instanceof Error ? error.message : '无法发送消息' } }); close() }
           return
         }
         const dashboardAgentCancel = new RegExp(`^${API.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/dashboard-agent-sessions/([a-f0-9-]{36})/cancel$`).exec(url.pathname)

@@ -1,9 +1,12 @@
 /**
- * Browser half of dsh-workbench. It deliberately uses plain DOM rather than
- * the host React tree: DSH owns that tree, while this plugin owns only its
- * sidebar row and a disposable conversation-column workbench overlay.
+ * Browser half of dsh-workbench. The shell/iframe owns the workbench layout;
+ * an additive native slot surface owns conversation rendering and interactions.
+ * No native transcript DOM is moved and no transcript is projected over SSE.
  */
-export const inject = ['sessions', 'workspaces']
+import { submitNativeSession } from './native-session-bridge.js'
+import { installNativeConversationSurface } from './native-conversation-surface.js'
+import { createNativeSurfacePanel } from './native-surface-theme.js'
+export const inject = ['sessions', 'workspaces', 'slots']
 
 type SessionDriver = {
   rename(title: string): Promise<unknown>
@@ -29,16 +32,19 @@ type WorkbenchEvent = {
   icon?: 'file' | 'terminal' | 'calculate' | 'verify' | 'artifact'
 }
 type SessionsFace = {
+  list: { getSnapshot(): { current?: string; byId: Record<string, { cwd?: string }> }; subscribe(listener: () => void): () => void }
   binding(sessionId: string): { session: SessionDriver } | undefined
   open(sessionId: string): void
+  create(options: { workspaceId: string; sessionId?: string }): Promise<string>
 }
 type WorkspaceItem = { workspaceId: string; title?: string; path?: string }
 type WorkspacesFace = {
-  list: { getSnapshot(): { items: readonly WorkspaceItem[]; recentWorkspaceId?: string } }
+  list: { getSnapshot(): { items: readonly WorkspaceItem[]; recentWorkspaceId?: string; baselinesReady?: boolean } }
   connectWorkspace(workspaceId: string): Promise<string>
 }
 type ClientContext = { get(name: string): unknown }
 type WorkbenchMessage = {
+  workspaceId?: unknown
   source?: unknown
   kind?: unknown
   requestId?: unknown
@@ -50,11 +56,12 @@ type WorkbenchMessage = {
   profile?: unknown
   sessionId?: unknown
   designTemplate?: unknown
+  uploadId?: unknown
 }
 type DatasetProfile = { fileName: string; rowCount: number; fieldCount: number; fields: string[]; dateFields: string[]; numberFields: string[] }
 type DesignStyle = { id: string; name: string; description?: string; primaryColor?: string; styleGuide?: string }
 type SemanticAsset = { fqn: string; entityType: string; name: string; description?: string; columns: string[]; glossaryTerms?: string[]; tags?: string[]; owners?: string[] }
-type AgentRunMessage = { requestId: string; title: string; intent: string; filePath?: string; profile?: DatasetProfile; designTemplate?: DesignStyle; sourceMode?: 'omd'; semanticAsset?: SemanticAsset }
+type AgentRunMessage = { requestId: string; title: string; intent: string; workspaceId?: string; sessionId?: string; uploadId?: string; filePath?: string; profile?: DatasetProfile; designTemplate?: DesignStyle; sourceMode?: 'omd'; semanticAsset?: SemanticAsset }
 
 const ENTRY = '[data-dsh-workbench-entry]'
 const VIEW = '[data-dsh-workbench-view]'
@@ -114,6 +121,13 @@ export function apply(ctx: ClientContext): void {
   installStyle()
   const sessions = ctx.get('sessions') as SessionsFace
   const workspaces = ctx.get('workspaces') as WorkspacesFace
+  const nativeSurface = installNativeConversationSurface(ctx)
+  let nativeSessionId: string | undefined
+  let nativeUnsubscribe: (() => void) | undefined
+  let nativePanel: HTMLDivElement | undefined
+  let nativeMount: ReturnType<typeof createNativeSurfacePanel> | undefined
+  let nativeGeometryObserver: ResizeObserver | undefined
+  let observedComposer: Element | undefined
   let entry: HTMLButtonElement | undefined; let view: HTMLDivElement | undefined; let frame: HTMLIFrameElement | undefined; let entryResizeObserver: ResizeObserver | undefined
   const syncEntryCompact = (): void => {
     const sidebar = sidebarRoot()
@@ -126,11 +140,13 @@ export function apply(ctx: ClientContext): void {
     window.history.replaceState(window.history.state, '', url)
   }
   const close = (): void => {
+    nativeSurface.setTarget(null)
     document.documentElement.removeAttribute(ACTIVE); entry?.removeAttribute('data-active'); syncWorkbenchUrl(false)
   }
   const open = (): void => {
     returnFromForeignPluginViews()
     document.documentElement.setAttribute(ACTIVE, ''); entry?.setAttribute('data-active', 'true'); syncWorkbenchUrl(true)
+    frame?.contentWindow?.postMessage({ source: 'dsh-workbench', kind: 'workbench-visible' }, window.location.origin)
   }
   const toggle = (): void => document.documentElement.hasAttribute(ACTIVE) ? close() : open()
   const ensure = (): void => {
@@ -154,12 +170,72 @@ export function apply(ctx: ClientContext): void {
     const center = centerColumn()
     if (center && !view?.isConnected) {
       view ??= document.createElement('div'); view.dataset.dshWorkbenchView = ''; view.dataset.dshPlugin = 'workbench'
-      frame ??= document.createElement('iframe'); frame.dataset.dshWorkbenchFrame = ''; frame.title = 'DSH 看板工作台'; frame.src = '/dsh-workbench?embedded=2'
+      frame ??= document.createElement('iframe'); frame.dataset.dshWorkbenchFrame = ''; frame.title = 'DSH 看板工作台'; frame.src = '/dsh-workbench?embedded=2' + (new URL(location.href).searchParams.has('nativeSession') ? '&nativeSession=' + encodeURIComponent(new URL(location.href).searchParams.get('nativeSession')!) : '')
       view.replaceChildren(frame)
       if (getComputedStyle(center).position === 'static') center.style.position = 'relative'
       center.append(view)
     }
+    const doc = frame?.contentDocument
+    const seat = doc?.querySelector<HTMLElement>('#native-conversation-seat')
+    const active = document.documentElement.hasAttribute(ACTIVE) && nativeSessionId && seat && view
+    if (active) {
+      if (!nativePanel?.isConnected || nativePanel.ownerDocument !== doc) {
+        nativeSurface.setTarget(null)
+        nativeMount?.dispose()
+        nativeMount = createNativeSurfacePanel(document, doc!)
+        nativePanel = nativeMount.panel
+        nativeGeometryObserver?.disconnect()
+        nativeGeometryObserver = new ResizeObserver(() => ensure())
+        nativeGeometryObserver.observe(frame!)
+        const workbenchSidebar = doc!.querySelector('.sidebar')
+        if (workbenchSidebar) nativeGeometryObserver.observe(workbenchSidebar)
+        observedComposer = undefined
+      }
+      const composerElement = doc!.querySelector<HTMLElement>('.composer-wrapper')
+      if (composerElement && composerElement !== observedComposer) {
+        if (observedComposer) nativeGeometryObserver?.unobserve(observedComposer)
+        nativeGeometryObserver?.observe(composerElement)
+        observedComposer = composerElement
+      }
+      const composer = composerElement?.getBoundingClientRect()
+      const rect = seat!.getBoundingClientRect()
+      const left = composer?.left ?? rect.left
+      const width = composer?.width ?? rect.width
+      const delivery = doc!.querySelector<HTMLElement>('.chat-thread > .agent-message')
+      if (delivery && composer) Object.assign(delivery.style, { position: 'fixed', left: left + 'px', width: width + 'px', maxWidth: 'none', bottom: ((doc!.defaultView?.innerHeight ?? window.innerHeight) - composer.top + 12) + 'px', zIndex: '7', padding: '0' })
+      const deliveryHeight = delivery?.getBoundingClientRect().height ?? 0
+      const height = Math.max(160, (composer?.top ?? rect.bottom) - 24 - (deliveryHeight ? deliveryHeight + 12 : 0))
+      seat!.style.height = height + 'px'
+      Object.assign(nativePanel.style, { position: 'fixed', left: left + 'px', top: '8px', width: width + 'px', height: height + 'px', background: '#fff', zIndex: '2', display: 'flex', flexDirection: 'column', overflow: 'hidden' })
+      nativeSurface.setTarget(nativeMount!.content)
+    } else {
+      nativeSurface.setTarget(null)
+      if (nativePanel) nativePanel.style.display = 'none'
+    }
   }
+  const observeNative = async (sessionId: string): Promise<void> => {
+    // Reload can deliver the iframe handoff before the native session catalog.
+    if (!sessions.list.getSnapshot().byId[sessionId]) await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => { dispose(); reject(new Error('原生会话目录尚未加载或原会话不可用；未创建替代会话，请重试。')) }, 10000)
+      const dispose = sessions.list.subscribe(() => { if (sessions.list.getSnapshot().byId[sessionId]) { clearTimeout(timeout); dispose(); resolve() } })
+      if (sessions.list.getSnapshot().byId[sessionId]) { clearTimeout(timeout); dispose(); resolve() }
+    })
+    nativeSessionId = sessionId
+    nativeUnsubscribe?.()
+    const driver = sessions.binding(sessionId)?.session
+    const update = (): void => {
+      const current = driver?.getSnapshot?.()
+      frame?.contentWindow?.postMessage({ source: 'dsh-workbench', kind: 'native-session-state', sessionId, running: Boolean(current?.running) }, location.origin)
+    }
+    nativeUnsubscribe = driver?.subscribe?.(update)
+    sessions.open(sessionId)
+    const items = workspaces.list.getSnapshot().items.filter(item => item.path && !/[\\/]agent-inputs[\\/]/i.test(item.path))
+    const cwd = sessions.list.getSnapshot().byId[sessionId]?.cwd
+    const normalize = (path?: string): string => (path || '').replace(/\\/g, '/').replace(/\/$/, '').toLowerCase()
+    frame?.contentWindow?.postMessage({ source: 'dsh-workbench', kind: 'workbench-workspaces', items, selected: items.find(item => normalize(item.path) === normalize(cwd))?.workspaceId }, location.origin)
+    update(); ensure()
+  }
+  window.addEventListener('resize', ensure)
   const observer = new MutationObserver(ensure); observer.observe(document.body, { childList: true, subtree: true }); ensure()
   if (new URL(window.location.href).searchParams.get('workbench') === '1') open()
   document.addEventListener('click', event => {
@@ -173,14 +249,23 @@ export function apply(ctx: ClientContext): void {
     if (event.origin !== window.location.origin || event.source !== frame?.contentWindow) return
     const message = event.data as WorkbenchMessage
     if (message?.source !== 'dsh-workbench') return
+    if (message.kind === 'workbench-ready') {
+      const items = workspaces.list.getSnapshot().items.filter(item => item.path && !/[\\/]agent-inputs[\\/]/i.test(item.path))
+      const current = sessions.list.getSnapshot(); const cwd = current.current ? current.byId[current.current]?.cwd : undefined
+      frame?.contentWindow?.postMessage({ source: 'dsh-workbench', kind: 'workbench-workspaces', items, selected: items.find(item => item.path === cwd)?.workspaceId }, location.origin)
+      return
+    }
     if (message.kind === 'close-workbench') { close(); return }
+    if (message.kind === 'native-seat-ready') { ensure(); return }
+    if (message.kind === 'new-native-task') { nativeSessionId = undefined; nativeUnsubscribe?.(); nativeSurface.setTarget(null); const url = new URL(location.href); url.searchParams.delete('nativeSession'); history.replaceState(history.state, '', url); return }
     if (typeof message.requestId !== 'string') return
     if (message.kind === 'open-session' && typeof message.sessionId === 'string') {
-      close(); sessions.open(message.sessionId)
+      void observeNative(message.sessionId).catch(error => frame?.contentWindow?.postMessage({ source: 'dsh-workbench', requestId: message.requestId, kind: 'history-load-failed', message: String(error) }, location.origin))
       return
     }
     if (message.kind === 'load-session' && typeof message.sessionId === 'string') {
-      loadSessionTimeline(message.requestId, message.sessionId, sessions, frame)
+      void observeNative(message.sessionId).catch(error => frame?.contentWindow?.postMessage({ source: 'dsh-workbench', requestId: message.requestId, kind: 'history-load-failed', message: String(error) }, location.origin))
+      frame?.contentWindow?.postMessage({ source: 'dsh-workbench', requestId: message.requestId, kind: 'native-session-restored', sessionId: message.sessionId }, location.origin)
       return
     }
     if (message.kind === 'stop-agent' && typeof message.sessionId === 'string') {
@@ -190,8 +275,7 @@ export function apply(ctx: ClientContext): void {
     if (message.kind !== 'run-agent' || typeof message.title !== 'string' || typeof message.intent !== 'string') return
     const asset = semanticAsset(message.semanticAsset)
     const omdSource = message.sourceMode === 'omd'
-    if ((!omdSource && typeof message.filePath !== 'string') || (omdSource && !asset)) return
-    void runInWorkspace({ requestId: message.requestId, title: message.title, intent: message.intent, filePath: typeof message.filePath === 'string' ? message.filePath : undefined, profile: datasetProfile(message.profile), designTemplate: designStyle(message.designTemplate), sourceMode: omdSource ? 'omd' : undefined, semanticAsset: asset }, sessions, workspaces, frame)
+    void runInWorkspace({ requestId: message.requestId, title: message.title, intent: message.intent, workspaceId: typeof message.workspaceId === 'string' ? message.workspaceId : undefined, sessionId: typeof message.sessionId === 'string' ? message.sessionId : undefined, uploadId: typeof message.uploadId === 'string' ? message.uploadId : undefined, designTemplate: designStyle(message.designTemplate), sourceMode: omdSource ? 'omd' : undefined, semanticAsset: asset }, sessions, workspaces, frame, observeNative)
   })
 }
 
@@ -203,188 +287,35 @@ async function stopAgent(requestId: string, sessionId: string, sessions: Session
     return
   }
   try {
-    await driver.cancel()
+    const result = await driver.cancel() as { ok?: boolean; error?: unknown }
+    if (result?.ok === false) throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error))
     reply({ kind: 'agent-stopped', sessionId })
   } catch (error) {
     reply({ kind: 'agent-stop-failed', message: error instanceof Error ? error.message : '停止任务失败' })
   }
 }
 
-function loadSessionTimeline(requestId: string, sessionId: string, sessions: SessionsFace, frame: HTMLIFrameElement | undefined): void {
-  const reply = (payload: Record<string, unknown>): void => frame?.contentWindow?.postMessage({ source: 'dsh-workbench', requestId, ...payload }, window.location.origin)
-  const driver = sessions.binding(sessionId)?.session
-  const snapshot = driver?.getSnapshot?.()
-  if (!driver || !snapshot) {
-    reply({ kind: 'history-load-failed', message: '该会话暂时无法读取；已保留本地过程记录。' })
-    return
-  }
-  const running = Boolean(snapshot.running)
-  const latestCall = snapshot.runningCalls?.at(-1)
-  reply({ kind: 'history-loaded', sessionId, timeline: timelineFromSnapshot(snapshot, running), running, activity: typeof latestCall?.name === 'string' ? toolLabel(latestCall.name) : undefined, assistantText: assistantTextFromSnapshot(snapshot) })
-  if (running) mirrorAgentOutput(driver, reply)
-}
-
-async function runInWorkspace(message: AgentRunMessage, sessions: SessionsFace, workspaces: WorkspacesFace, frame: HTMLIFrameElement | undefined): Promise<void> {
+async function runInWorkspace(message: AgentRunMessage, sessions: SessionsFace, workspaces: WorkspacesFace, frame: HTMLIFrameElement | undefined, showNative: (sessionId: string) => Promise<void>): Promise<void> {
   const reply = (payload: Record<string, unknown>): void => frame?.contentWindow?.postMessage({ source: 'dsh-workbench', requestId: message.requestId, ...payload }, window.location.origin)
   try {
-    const snapshot = workspaces.list.getSnapshot()
-    const workspace = snapshot.items.find(item => item.workspaceId === snapshot.recentWorkspaceId) ?? snapshot.items[0]
-    if (workspace === undefined) throw new Error('未找到可用的 DSH 工作区，请先在主界面创建或打开一个工作区。')
-    const sessionId = await workspaces.connectWorkspace(workspace.workspaceId)
-    const driver = sessions.binding(sessionId)?.session
-    if (driver === undefined) throw new Error('DSH 会话尚未就绪，请重试。')
-    await driver.rename(message.title)
-    const accepted = await driver.prompt([{ type: 'text', text: agentPrompt(message.intent, message.filePath, message.profile, message.designTemplate, message.semanticAsset) }], 'queue')
-    if (!accepted.ok) throw new Error(String(accepted.error))
-    reply({ kind: 'agent-started', sessionId, workspaceId: workspace.workspaceId, workspaceTitle: workspace.title || workspace.path || '当前工作区' })
-    mirrorAgentOutput(driver, reply)
+    const sessionId = await submitNativeSession({
+      sessionId: message.sessionId, workspaceId: message.workspaceId, title: message.title,
+      onBound: sessionId => reply({ kind: 'native-session-bound', sessionId }),
+      onRejected: async sessionId => { await fetch('/api/dsh-workbench/native-session-input/rejected', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sessionId, requestId: message.requestId }) }) },
+      prepare: async sessionId => {
+        const response = await fetch('/api/dsh-workbench/native-session-input', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ requestId: message.requestId, sessionId, uploadId: message.uploadId, prompt: message.intent, designTemplateId: message.designTemplate?.id, semanticAsset: message.semanticAsset }) })
+        const data = await response.json()
+        if (!response.ok || typeof data.prompt !== 'string') throw new Error(data.error || '附件与原生会话连接失败')
+        if (data.replayed) throw new Error('本次提交已经登记，不会重复执行。请等待原会话恢复。')
+        return data.prompt
+      },
+    }, sessions, workspaces)
+    reply({ kind: 'native-session-started', sessionId })
+    const url = new URL(location.href); url.searchParams.set('nativeSession', sessionId); history.replaceState(history.state, '', url)
+    await showNative(sessionId)
   } catch (error) {
     reply({ kind: 'agent-failed', message: error instanceof Error ? error.message : '无法启动 Agent 会话' })
   }
-}
-
-function textFromBlocks(blocks: readonly AssistantBlock[] | undefined): string {
-  return (blocks ?? [])
-    .filter(block => block.kind === 'text')
-    .map(block => typeof block.text === 'string' ? block.text : '')
-    .filter(Boolean)
-    .join('\n\n')
-}
-
-type ToolDisplay = Pick<WorkbenchEvent, 'title' | 'summary' | 'icon'>
-
-function commandText(argsRaw: unknown): string {
-  if (typeof argsRaw === 'string') return argsRaw
-  if (!argsRaw || typeof argsRaw !== 'object') return ''
-  const args = argsRaw as Record<string, unknown>
-  return [args.command, args.script, args.cmd, args.path].filter(value => typeof value === 'string').join(' ')
-}
-
-/** Map opaque DSH tool names to a concise, user-facing action and outcome. */
-function toolDisplay(name: unknown, argsRaw?: unknown): ToolDisplay {
-  const tool = typeof name === 'string' ? name.toLowerCase() : ''
-  const command = commandText(argsRaw).toLowerCase()
-  if (tool.includes('read') || /get-content|import-csv|convertfrom-csv/.test(command)) {
-    return { title: '读取数据文件', summary: '已获取字段、样本与数据规模', icon: 'file' }
-  }
-  if (/measure-object|group-object|select-object|sort-object|sum\(|avg\(|average/.test(command)) {
-    return { title: '计算与汇总指标', summary: '已得到后续看板所需的统计结果', icon: 'calculate' }
-  }
-  if (/set-content|add-content|out-file|new-item|writealltext|dashboard\.html/.test(command) || tool.includes('write') || tool.includes('patch')) {
-    return { title: '生成看板文件', summary: '已写入 HTML 产物', icon: 'terminal' }
-  }
-  if (/test-path|select-string|validate|check/.test(command)) {
-    return { title: '校验数据与看板', summary: '已确认关键文件和口径', icon: 'verify' }
-  }
-  if (/get-childitem|dir\b|ls\b|glob|list/.test(command) || tool.includes('list') || tool.includes('glob')) {
-    return { title: '检查工作区文件', summary: '已确认可用输入与产物位置', icon: 'file' }
-  }
-  if (tool.includes('pwsh') || tool.includes('exec') || tool.includes('command')) {
-    return { title: '运行数据处理命令', summary: '命令结果已用于后续分析', icon: 'terminal' }
-  }
-  return { title: typeof name === 'string' ? `执行 ${name}` : '执行数据分析步骤', summary: '执行结果已用于后续分析', icon: 'terminal' }
-}
-
-function toolLabel(name: unknown, argsRaw?: unknown): string {
-  return toolDisplay(name, argsRaw).title
-}
-
-function safeSummary(text: string): string | undefined {
-  const cleaned = safeAssistantText(text)
-    ?.replace(/\s+/g, ' ')
-    .trim()
-  if (!cleaned) return undefined
-  return cleaned.slice(0, 280) + (cleaned.length > 280 ? '…' : '')
-}
-
-/** User-visible assistant prose only. Hidden reasoning and generated source stay in the DSH session. */
-function safeAssistantText(text: string): string | undefined {
-  const cleaned = text
-    .replace(/<think>[\s\S]*?<\/think>/gi, '')
-    .replace(/```[\s\S]*?```/g, '')
-    .trim()
-  // Error documents from an upstream HTTP call are not a user-facing answer.
-  if (/(?:^|[\r\n])\s*(?:[45]\d{2}\s+)?<!doctype\s+html\b/i.test(cleaned.slice(0, 2_048))) return undefined
-  if (!cleaned) return undefined
-  return cleaned.slice(0, 1_200) + (cleaned.length > 1_200 ? '…' : '')
-}
-
-function assistantTextFromSnapshot(snapshot: ConversationSnapshot): string | undefined {
-  const partial = safeAssistantText(textFromBlocks(snapshot.partial?.blocks))
-  if (partial) return partial
-  const lastAssistant = [...(snapshot.nodes ?? [])].reverse().find(node => node.kind === 'assistant')
-  return safeAssistantText(textFromBlocks(lastAssistant?.blocks))
-}
-
-function timelineFromSnapshot(snapshot: ConversationSnapshot, running: boolean): WorkbenchEvent[] {
-  const events = new Map<string, WorkbenchEvent>()
-  const calls = new Map<string, { name: unknown; argsRaw?: unknown }>()
-  for (const node of snapshot.nodes ?? []) {
-    if (node.kind !== 'assistant') continue
-    const seq = typeof node.seq === 'number' ? String(node.seq) : 'unknown'
-    for (const block of node.blocks ?? []) {
-      if (block.kind !== 'tool-call') continue
-      const callId = typeof block.callId === 'string' ? block.callId : `${seq}:${String(block.name ?? 'tool')}`
-      calls.set(callId, { name: block.name, argsRaw: block.argsRaw })
-    }
-  }
-  for (const node of snapshot.nodes ?? []) {
-    const seq = typeof node.seq === 'number' ? String(node.seq) : 'unknown'
-    if (node.kind === 'tool-result') {
-      const callId = typeof node.callId === 'string' ? node.callId : seq
-      const call = calls.get(callId)
-      const display = toolDisplay(call?.name ?? node.call?.name, call?.argsRaw ?? node.call?.argsRaw)
-      events.set(`tool:${callId}`, { id: `tool:${callId}`, type: 'tool', status: node.isError ? 'failed' : 'completed', ...display, summary: node.isError ? '执行未完成，请在完整会话中查看原因。' : display.summary })
-      continue
-    }
-    if (node.kind !== 'assistant') continue
-    for (const block of node.blocks ?? []) {
-      if (block.kind !== 'tool-call') continue
-      const callId = typeof block.callId === 'string' ? block.callId : `${seq}:${String(block.name ?? 'tool')}`
-      if (!events.has(`tool:${callId}`)) {
-        const display = toolDisplay(block.name, block.argsRaw)
-        events.set(`tool:${callId}`, { id: `tool:${callId}`, type: 'tool', status: 'running', ...display, summary: '正在执行，完成后会展示结果。' })
-      }
-    }
-  }
-  const lastAssistant = [...(snapshot.nodes ?? [])].reverse().find(node => node.kind === 'assistant')
-  const finalSummary = safeSummary(textFromBlocks(lastAssistant?.blocks))
-  if (finalSummary && !running) {
-    events.set('insight:final', { id: 'insight:final', type: 'insight', status: 'completed', title: '分析结论已生成', summary: finalSummary })
-    if (/dashboard\.html/i.test(finalSummary)) events.set('artifact:dashboard', { id: 'artifact:dashboard', type: 'artifact', status: 'completed', title: '看板产物已生成', summary: '已生成 HTML 看板，可在完整会话中查看保存路径与交付说明。' })
-  }
-  return [...events.values()]
-}
-
-/** Forward structured, user-facing progress from the supported DSH session snapshot. */
-function mirrorAgentOutput(driver: SessionDriver, reply: (payload: Record<string, unknown>) => void): void {
-  if (!driver.getSnapshot || !driver.subscribe) return
-  let dispose: (() => void) | undefined
-  let sawRunning = false
-  const forward = (): void => {
-    const snapshot = driver.getSnapshot?.()
-    if (!snapshot) return
-    const latestCall = snapshot.runningCalls?.at(-1)
-    if (snapshot.running) sawRunning = true
-    const running = Boolean(snapshot.running)
-    const timeline = timelineFromSnapshot(snapshot, running)
-    reply({ kind: 'agent-update', running, timeline: sawRunning ? timeline : [], activity: typeof latestCall?.name === 'string' ? toolLabel(latestCall.name) : undefined, assistantText: assistantTextFromSnapshot(snapshot) })
-    const lastAssistant = [...(snapshot.nodes ?? [])].reverse().find(node => node.kind === 'assistant')
-    if (sawRunning && !snapshot.running && lastAssistant) {
-      reply({ kind: 'agent-complete', timeline, activity: undefined, assistantText: assistantTextFromSnapshot(snapshot) })
-      dispose?.()
-    }
-  }
-  dispose = driver.subscribe(forward)
-  forward()
-}
-
-function datasetProfile(value: unknown): DatasetProfile | undefined {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
-  const profile = value as Record<string, unknown>
-  if (typeof profile.fileName !== 'string' || typeof profile.rowCount !== 'number' || typeof profile.fieldCount !== 'number' || !Array.isArray(profile.fields)) return undefined
-  const strings = (items: unknown): string[] => Array.isArray(items) ? items.filter((item): item is string => typeof item === 'string').slice(0, 12) : []
-  return { fileName: profile.fileName, rowCount: profile.rowCount, fieldCount: profile.fieldCount, fields: strings(profile.fields), dateFields: strings(profile.dateFields), numberFields: strings(profile.numberFields) }
 }
 
 function designStyle(value: unknown): DesignStyle | undefined {
@@ -406,14 +337,4 @@ function semanticAsset(value: unknown): SemanticAsset | undefined {
   if (typeof record.fqn !== 'string' || typeof record.entityType !== 'string' || typeof record.name !== 'string') return undefined
   const strings = (input: unknown): string[] => Array.isArray(input) ? input.filter((item): item is string => typeof item === 'string').map(item => item.slice(0, 300)) : []
   return { fqn: record.fqn.slice(0, 800), entityType: record.entityType.slice(0, 80), name: record.name.slice(0, 180), description: typeof record.description === 'string' ? record.description.slice(0, 1_200) : undefined, columns: strings(record.columns).slice(0, 80), glossaryTerms: strings(record.glossaryTerms).slice(0, 40), tags: strings(record.tags).slice(0, 40), owners: strings(record.owners).slice(0, 40) }
-}
-
-function agentPrompt(intent: string, filePath?: string, profile?: DatasetProfile, designTemplate?: DesignStyle, asset?: SemanticAsset): string {
-  const verifiedProfile = profile
-    ? `\n\n系统已在上传时验证的数据画像（这是事实基线；你仍须用工具读取文件复核）：\n- 文件：${profile.fileName}\n- 记录数：${profile.rowCount}\n- 字段数：${profile.fieldCount}\n- 字段：${profile.fields.join('、') || '未提取'}${profile.dateFields.length ? `\n- 已识别时间字段：${profile.dateFields.join('、')}` : ''}${profile.numberFields.length ? `\n- 已识别数值字段：${profile.numberFields.join('、')}` : ''}`
-    : ''
-  void designTemplate
-  if (asset) return `用户需求：${intent}\n\n用户选择的数据资产：\n- 名称：${asset.name}\n- 类型：${asset.entityType}\n- FQN：${asset.fqn}${asset.description ? `\n- 描述：${asset.description}` : ''}${asset.columns.length ? `\n- 字段：${asset.columns.join('、')}` : ''}${asset.glossaryTerms?.length ? `\n- 术语：${asset.glossaryTerms.join('、')}` : ''}\n\n请自行决定如何使用可用的 MCP 工具、数据和网页能力完成用户请求。不要套用预置看板模板、Plan、确认或 Spec 流程。`
-  if (!filePath) throw new Error('DATA_SOURCE_REQUIRED')
-  return `用户需求：${intent}\n\n数据文件（CSV，已在本机保存）：${filePath}${verifiedProfile}\n\n这是原生 DeepSeek Harness 看板任务。请自主读取和理解数据，自行决定信息架构、指标、图表、交互、视觉与实现方式，直接生成能够满足用户目标的完整看板。你可以按需要使用可用工具；不使用预设模板、字段映射、Plan、确认、Spec 或确定性渲染流程。完成后使用 workbench_save_generated_dashboard 保存完整 HTML；它只会保存为会话内草稿，用户将在页面中预览并明确确认后才会发布到“我的看板”。`
 }

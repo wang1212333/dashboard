@@ -1,4 +1,4 @@
-import { copyFile, mkdir } from 'node:fs/promises'
+import { copyFile, mkdir, cp } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -19,4 +19,8 @@ for (const asset of assets) {
     await mkdir(dirname(target), { recursive: true })
     await copyFile(source, target)
   }
+}
+
+for (const folder of ['dist', 'dist-dashboard']) {
+  await cp(resolve(root, 'src/design-library/lieflat-assets'), resolve(root, folder, 'design-library/lieflat-assets'), { recursive: true })
 }

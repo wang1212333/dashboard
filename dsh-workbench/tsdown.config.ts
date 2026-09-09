@@ -6,6 +6,7 @@ export default defineConfig({
   outDir: 'dist',
   format: 'cjs',
   platform: 'browser',
+  external: ['react', 'react-dom'],
   target: 'es2022',
   dts: false,
   clean: false,

@@ -30,7 +30,7 @@ describe('design template library', () => {
     }) as unknown as typeof fetch
     const library = new DesignTemplateLibrary({ cacheRoot: await root(), fetch: fetcher })
 
-    await expect(library.list()).resolves.toEqual([expect.objectContaining({ id: 'linear.app', name: 'Linear', contentSha: 'linear-sha' })])
+    await expect(library.list()).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ id: 'linear.app', name: 'Linear', contentSha: 'linear-sha' })]))
     expect(fetcher).toHaveBeenCalledTimes(1)
 
     const detail = await library.get('linear.app')
@@ -67,7 +67,7 @@ describe('design template library', () => {
       return new Response('not found', { status: 404 })
     }) as unknown as typeof fetch
     const library = new DesignTemplateLibrary({ cacheRoot: await root(), fetch: fetcher })
-    await expect(library.list()).resolves.toEqual([expect.objectContaining({ id: 'linear.app', contentSha: expect.stringMatching(/^unversioned-/) })])
+    await expect(library.list()).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ id: 'linear.app', contentSha: expect.stringMatching(/^unversioned-/) })]))
   })
 
   it('keeps the cached directory available when a manual refresh fails', async () => {
@@ -76,8 +76,8 @@ describe('design template library', () => {
       ? new Response(JSON.stringify({ tree: [{ path: 'design-md/linear.app/DESIGN.md', type: 'blob', sha: 'linear-sha' }] }), { status: 200 })
       : new Response('unavailable', { status: 503 })) as unknown as typeof fetch
     const library = new DesignTemplateLibrary({ cacheRoot: await root(), fetch: fetcher })
-    await expect(library.listResult()).resolves.toMatchObject({ cacheStatus: 'fresh', templates: [expect.objectContaining({ id: 'linear.app' })] })
+    await expect(library.listResult()).resolves.toMatchObject({ cacheStatus: 'fresh', templates: expect.arrayContaining([expect.objectContaining({ id: 'linear.app' })]) })
     available = false
-    await expect(library.syncResult()).resolves.toMatchObject({ cacheStatus: 'stale', warning: expect.stringContaining('本地缓存'), templates: [expect.objectContaining({ id: 'linear.app' })] })
+    await expect(library.syncResult()).resolves.toMatchObject({ cacheStatus: 'stale', warning: expect.stringContaining('本地缓存'), templates: expect.arrayContaining([expect.objectContaining({ id: 'linear.app' })]) })
   })
 })

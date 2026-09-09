@@ -1,0 +1,253 @@
+{
+  "repository": "larashero3-dotcom/lieflat-charts",
+  "revision": "eace082a317b696c5570c25826a53a7fa113e984",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "templates": [
+    {
+      "id": "lieflat-r01",
+      "name": "Lieflat · 调研一页纸",
+      "kind": "report",
+      "file": "templates/reports/report-01.zh.html",
+      "englishFile": "templates/reports/report-01.en.html",
+      "description": "调研报告、研究简报、政策 / 市场洞察、白皮书开篇、对外数据发布；3 图，中等 · Porcelain",
+      "tags": [
+        "整页报告",
+        "Porcelain"
+      ],
+      "cover": "covers/lieflat-r01.webp",
+      "contentSha": "5ded8952f905a1aad50269374603f521760eec9f4bc34aca51334d5a2783d9a2"
+    },
+    {
+      "id": "lieflat-r02",
+      "name": "Lieflat · 年度里程碑",
+      "kind": "report",
+      "file": "templates/reports/report-02.zh.html",
+      "englishFile": "templates/reports/report-02.en.html",
+      "description": "年度复盘、业绩 / 财报回顾、投资人更新、产品或项目里程碑；3 图，中等 · Palm",
+      "tags": [
+        "整页报告",
+        "Palm"
+      ],
+      "cover": "covers/lieflat-r02.webp",
+      "contentSha": "2adca5f97993560386955ed75412149e93ad30b68832d2c6746d6badbdfae0c1"
+    },
+    {
+      "id": "lieflat-r03",
+      "name": "Lieflat · 年度数据海报",
+      "kind": "report",
+      "file": "templates/reports/report-03.zh.html",
+      "englishFile": "templates/reports/report-03.en.html",
+      "description": "年度数据报告、经营 / 财务年报、个人年度记录、年度趋势海报；4 图，较高 · Wire",
+      "tags": [
+        "整页报告",
+        "Wire"
+      ],
+      "cover": "covers/lieflat-r03.webp",
+      "contentSha": "91e5b10a8d10e747b88682b3d0d82e9a09a4aacd20c68c68694377d49cde3289"
+    },
+    {
+      "id": "lieflat-r04",
+      "name": "Lieflat · 月度运营",
+      "kind": "report",
+      "file": "templates/reports/report-04.zh.html",
+      "englishFile": "templates/reports/report-04.en.html",
+      "description": "月报、业务数据报告、财报、运营 / 财务经营复盘、周期性监控；4 图，较高 · Porcelain",
+      "tags": [
+        "整页报告",
+        "Porcelain"
+      ],
+      "cover": "covers/lieflat-r04.webp",
+      "contentSha": "cf96246f4ec7407cc176f7f4b5b5929f63b70c560f5875c719cca68b4452ed4b"
+    },
+    {
+      "id": "lieflat-r05",
+      "name": "Lieflat · 影响力故事",
+      "kind": "report",
+      "file": "templates/reports/report-05.zh.html",
+      "englishFile": "templates/reports/report-05.en.html",
+      "description": "项目复盘、产品记录、公益 / 社区案例、影响力叙事、个人成长记录；2 图，低 · Mono",
+      "tags": [
+        "整页报告",
+        "Mono"
+      ],
+      "cover": "covers/lieflat-r05.webp",
+      "contentSha": "bdf03b3edaba2a0464e1ac578f0d1fa3988c0ada0f74429344f5005670e64689"
+    },
+    {
+      "id": "lieflat-r06",
+      "name": "Lieflat · 产品八年年鉴",
+      "kind": "report",
+      "file": "templates/reports/report-06.zh.html",
+      "englishFile": "templates/reports/report-06.en.html",
+      "description": "长周期年鉴、产品 / 公司历史、多年财务或业务趋势、个人长期数据；4 图，高 · Palm",
+      "tags": [
+        "整页报告",
+        "Palm"
+      ],
+      "cover": "covers/lieflat-r06.webp",
+      "contentSha": "9bb41ad60db4e3d52db2a9013198ceb5fbbfbe69709144e7fff45ae75b982aa2"
+    },
+    {
+      "id": "lieflat-r07",
+      "name": "Lieflat · 调研拼贴海报",
+      "kind": "report",
+      "file": "templates/reports/report-07.zh.html",
+      "englishFile": "templates/reports/report-07.en.html",
+      "description": "调研报告海报、用户 / 市场研究、活动 / 展会数据、社媒传播物料；5 图，很高 · Palm",
+      "tags": [
+        "整页报告",
+        "Palm"
+      ],
+      "cover": "covers/lieflat-r07.webp",
+      "contentSha": "736f81d6fadade9b0a61ec018103f62c2418ef0e149909f2ed0aa6096f7bebdb"
+    },
+    {
+      "id": "lieflat-r08",
+      "name": "Lieflat · 单位人群一页",
+      "kind": "report",
+      "file": "templates/reports/report-08.zh.html",
+      "englishFile": "templates/reports/report-08.en.html",
+      "description": "人群 / 用户画像、政策 / 公益简报、市场细分、人口与社会经济数据；2 图，低 · Wire",
+      "tags": [
+        "整页报告",
+        "Wire"
+      ],
+      "cover": "covers/lieflat-r08.webp",
+      "contentSha": "d0c23d871fe98bb2406a313b9eeb906ba2367e19051c7ca175dae31df8a239c7"
+    },
+    {
+      "id": "lieflat-r09",
+      "name": "Lieflat · 数据故事仪表盘",
+      "kind": "report",
+      "file": "templates/reports/report-09.zh.html",
+      "englishFile": "templates/reports/report-09.en.html",
+      "description": "dashboard、财务 / 经营驾驶舱、业务总览、竞品 / 市场对比、KPI 快照；4 图 + KPI，高 · Porcelain",
+      "tags": [
+        "整页报告",
+        "Porcelain"
+      ],
+      "cover": "covers/lieflat-r09.webp",
+      "contentSha": "49dde207c8c16231e261f25703c734b6580df47ff5f470035bf4a4ab3bda54b7"
+    },
+    {
+      "id": "lieflat-r10",
+      "name": "Lieflat · 旅行手记",
+      "kind": "report",
+      "file": "templates/reports/report-10.zh.html",
+      "englishFile": "templates/reports/report-10.en.html",
+      "description": "旅行数据记录、运动数据记录、个人年度 / 生活数据、轻量项目日志；4 图 + 表，中等 · Palm",
+      "tags": [
+        "整页报告",
+        "Palm"
+      ],
+      "cover": "covers/lieflat-r10.webp",
+      "contentSha": "5c1b28109e4027f77ae62ede733a8586c83cab8ea53cfba07358f4ed1af6c9d5"
+    },
+    {
+      "id": "lieflat-r11",
+      "name": "Lieflat · 研究简报卡",
+      "kind": "report",
+      "file": "templates/reports/report-11.zh.html",
+      "englishFile": "templates/reports/report-11.en.html",
+      "description": "研究简报、金融 / 经济快报、社媒卡片、汇报插页、关键指标快照；2 图，定尺 · Mono",
+      "tags": [
+        "整页报告",
+        "Mono"
+      ],
+      "cover": "covers/lieflat-r11.webp",
+      "contentSha": "05384f08d8efa3ca295bde63fa42892d7fbdb9fad016bfd13a865e1134c6270d"
+    },
+    {
+      "id": "lieflat-r12",
+      "name": "Lieflat · 周报速览",
+      "kind": "report",
+      "file": "templates/reports/report-12.zh.html",
+      "englishFile": "templates/reports/report-12.en.html",
+      "description": "周报、财务 / 经营快报、运营监控、项目进展、运动或旅行周记；4 图，高 · Palm",
+      "tags": [
+        "整页报告",
+        "Palm"
+      ],
+      "cover": "covers/lieflat-r12.webp",
+      "contentSha": "b857265d9479ddbaea09b4f3072b110bbc20ff4b6aea4ff020170cb06a8d4cbe"
+    },
+    {
+      "id": "lieflat-lupi",
+      "name": "Lieflat · 编辑叙事图表",
+      "kind": "chart",
+      "file": "templates/lupi-gallery.html",
+      "description": "细线、点阵与逐条记录，适合深入分析与数据故事。",
+      "tags": [
+        "图表系列",
+        "Mono"
+      ],
+      "cover": "covers/lieflat-lupi.webp",
+      "contentSha": "158f9258a111f299f18774dc0b2d48834f0c3c49bf77aafbbf57380cdc407bac"
+    },
+    {
+      "id": "lieflat-basics",
+      "name": "Lieflat · 基础编辑图表",
+      "kind": "chart",
+      "file": "templates/basics-gallery.html",
+      "description": "柱线、面积、散点等熟悉图型，强调清晰的数据刻度。",
+      "tags": [
+        "图表系列",
+        "Mono"
+      ],
+      "cover": "covers/lieflat-basics.webp",
+      "contentSha": "1d01c8695b6b8e921de142cef0de66c10802a7a3ef38112b049c0c2f1eb35fd6"
+    },
+    {
+      "id": "lieflat-glance",
+      "name": "Lieflat · 快速判断图表",
+      "kind": "chart",
+      "file": "templates/glance-gallery.html",
+      "description": "大数字、排序与趋势，适合经营看板、监控和周报。",
+      "tags": [
+        "图表系列",
+        "Mono"
+      ],
+      "cover": "covers/lieflat-glance.webp",
+      "contentSha": "d2e99307cb35417405a1df9edc608651a5868c05322eaf8a79191fb8fab12ced"
+    },
+    {
+      "id": "lieflat-circular",
+      "name": "Lieflat · 环形关系图",
+      "kind": "chart",
+      "file": "templates/big-circular.html",
+      "description": "环形网络，适合探索实体之间的连接。",
+      "tags": [
+        "交互图表",
+        "Mono"
+      ],
+      "cover": "covers/lieflat-circular.webp",
+      "contentSha": "38af6e7022b58ddf28872c606d58ba99176fbc092acbb70e6bb53124cf776176"
+    },
+    {
+      "id": "lieflat-force",
+      "name": "Lieflat · 力导向关系图",
+      "kind": "chart",
+      "file": "templates/big-force.html",
+      "description": "支持拖拽与缩放的实体关系网络。",
+      "tags": [
+        "交互图表",
+        "Mono"
+      ],
+      "cover": "covers/lieflat-force.webp",
+      "contentSha": "e331808fbb83814c7557bfc9ca821c84e6f2dfb8a7425b2ae16a1842e669ac37"
+    },
+    {
+      "id": "lieflat-threads",
+      "name": "Lieflat · 多段路径图",
+      "kind": "chart",
+      "file": "templates/big-threads.html",
+      "description": "支持悬停与固定路径，适合多阶段流向分析。",
+      "tags": [
+        "交互图表",
+        "Mono"
+      ],
+      "cover": "covers/lieflat-threads.webp",
+      "contentSha": "093d08d506722d61edcbb1f5b33fb5a35cb9edc904c7cdc3d92b3377cdcfd39b"
+    }
+  ]
+}

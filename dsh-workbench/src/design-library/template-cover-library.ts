@@ -1,3 +1,4 @@
+import { lieflatEntry, lieflatPreview, lieflatCover } from './lieflat-templates.js'
 import { createHash } from 'node:crypto'
 import { access, mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
@@ -104,6 +105,7 @@ export class TemplateCoverLibrary {
   }
 
   async build(detail: DesignTemplateDetail, publicBase = '/api/design-templates'): Promise<{ manifest: TemplateManifest; cacheHit: boolean }> {
+    if (detail.provider === 'Lieflat Charts') return { manifest: await this.readManifest(detail, publicBase), cacheHit: true }
     const design = parseTemplateFrontMatter(detail.content, detail)
     const fixture = defaultFixture
     const html = renderTemplateDocument(design, fixture)
@@ -140,16 +142,23 @@ export class TemplateCoverLibrary {
   }
 
   async preview(template: DesignTemplateSummary): Promise<string | undefined> {
+    if (template.provider === 'Lieflat Charts') return lieflatPreview(template.id)
     const path = join(this.base(template), 'src', 'Template.html')
     return await fileExists(path) ? readFile(path, 'utf8') : undefined
   }
 
   async cover(template: DesignTemplateSummary): Promise<Buffer | undefined> {
+    if (template.provider === 'Lieflat Charts') return lieflatCover(template.id)
     const path = this.coverPath(template)
     return await fileExists(path) ? readFile(path) : undefined
   }
 
   private async readManifest(template: DesignTemplateSummary, publicBase = '/api/design-templates'): Promise<TemplateManifest> {
+    if (template.provider === 'Lieflat Charts') {
+      const entry = await lieflatEntry(template.id)
+      if (!entry) throw new Error('DESIGN_TEMPLATE_NOT_FOUND')
+      return { id: entry.id, name: entry.name, description: entry.description, version: template.contentSha.slice(0, 8), category: 'dashboard', theme: 'light', tags: entry.tags, status: 'ready', previewUrl: `${publicBase}/${entry.id}/preview`, coverUrl: `${publicBase}/${entry.id}/cover.webp`, updatedAt: '', buildHash: template.contentSha }
+    }
     const fallback: TemplateManifest = { id: template.id, name: template.name, description: '模板尚未构建预览封面。', version: '1.0.0', category: 'dashboard', theme: 'light', tags: [], status: 'queued', previewUrl: `${publicBase}/${encodeURIComponent(template.id)}/preview`, updatedAt: new Date(0).toISOString() }
     const path = join(this.base(template), 'manifest.json')
     if (!await fileExists(path)) return fallback

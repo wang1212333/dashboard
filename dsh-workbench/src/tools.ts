@@ -3,12 +3,13 @@ import { defineTool, type JsonValue } from '@deepseek-ai/dsh-tools'
 import { analyzeCsv } from './data-ingestion/csv-profile.js'
 import { assessOpenMetadataEvidence, normalizeSemanticEvidenceInput } from './data-connectors/openmetadata-mcp.js'
 import type { KnowledgeLibrary } from './library/knowledge-library.js'
+import type { NativeWorkbenchSessions } from './native-workbench-sessions.js'
 
 const renderJson = (_args: unknown, value: unknown) => [{ type: 'text' as const, text: JSON.stringify(value, null, 2) }]
 /** The DSH ToolRuntime accepts only lossless JSON values; serialize domain records at this boundary. */
 const asObject = (value: unknown): Record<string, JsonValue> => JSON.parse(JSON.stringify(value)) as Record<string, JsonValue>
 
-export function registerWorkbenchTools(ctx: Context, library: KnowledgeLibrary): void {
+export function registerWorkbenchTools(ctx: Context, library: KnowledgeLibrary, nativeSessions?: NativeWorkbenchSessions): void {
   ctx.tools.register(defineTool({
     name: 'workbench_save_generated_dashboard',
     description: 'Save a complete HTML dashboard authored directly by the Agent as a private draft for user preview. This action never publishes the dashboard or adds it to “我的看板”; the user must preview it and explicitly confirm publication in the workbench UI. The Agent independently chooses the dashboard structure and implementation from the user request and data.',
@@ -21,7 +22,7 @@ export function registerWorkbenchTools(ctx: Context, library: KnowledgeLibrary):
       sourceLabel: { type: 'string', description: 'Optional user-facing source label.' },
     },
     output: { schema: { type: 'object', additionalProperties: true }, render: renderJson },
-    execute: async (args) => {
+    execute: async (args, exec) => {
       const stored = await library.buildAgentNativeDraft({
         assetId: args.assetId,
         html: args.html,
@@ -30,7 +31,9 @@ export function registerWorkbenchTools(ctx: Context, library: KnowledgeLibrary):
         csv: typeof args.csv === 'string' ? args.csv : undefined,
         sourceLabel: typeof args.sourceLabel === 'string' ? args.sourceLabel : undefined,
       })
-      return asObject({ asset: stored.asset, revision: stored.revision, manifest: stored.manifest, html: stored.html, generationMode: 'native-dsh' })
+      const sessionId = exec.agent ? String(exec.agent.session.id) : undefined
+      if (sessionId && nativeSessions) await nativeSessions.recordDraft(sessionId, { assetId: stored.asset.assetId, revision: stored.revision.revision, title: stored.asset.displayName })
+      return asObject({ asset: stored.asset, revision: stored.revision, manifest: stored.manifest, generationMode: 'native-dsh', workbenchUrl: sessionId ? `/?workbench=1&nativeSession=${encodeURIComponent(sessionId)}` : '/?workbench=1', nextAction: '返回工作台预览草稿；发布需要用户明确确认。' })
     },
     presentCall: () => ({ card: 'generic', title: 'Save native DSH dashboard', kind: 'execute' }),
   }))
