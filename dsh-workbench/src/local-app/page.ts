@@ -127,7 +127,7 @@ function tooltipStyles(): string {
 }
 
 function tooltipBehavior(): string {
-  return `(()=>{const id='dsh-workbench-tooltip',gap=6,showDelay=150,hideDelay=90;const tip=document.createElement('div');tip.id=id;tip.className='tooltip';tip.setAttribute('role','tooltip');tip.hidden=true;document.body.append(tip);let active=null,showTimer=0,hideTimer=0;const trigger=target=>target instanceof Element?target.closest('[data-tooltip]'):null;const cancel=timer=>{if(timer)clearTimeout(timer)};const position=()=>{if(!active||tip.hidden)return;const rect=active.getBoundingClientRect(),edge=6,width=tip.offsetWidth,height=tip.offsetHeight;let placement='right',left=rect.right+gap,top=rect.top+(rect.height-height)/2;if(left+width>innerWidth-edge&&rect.left-gap-width>=edge){placement='left';left=rect.left-gap-width}if((placement==='right'&&left+width>innerWidth-edge)||(placement==='left'&&left<edge)){placement=rect.top>=height+gap+edge?'top':'bottom';left=Math.min(Math.max(edge,rect.left+(rect.width-width)/2),innerWidth-width-edge);top=placement==='top'?rect.top-gap-height:rect.bottom+gap}top=Math.min(Math.max(edge,top),innerHeight-height-edge);tip.dataset.placement=placement;tip.style.left=Math.round(left)+'px';tip.style.top=Math.round(top)+'px'};const open=element=>{if(!element)return;cancel(hideTimer);if(active===element&&!tip.hidden)return;cancel(showTimer);if(active&&active!==element)active.removeAttribute('aria-describedby');active=element;tip.textContent=element.dataset.tooltip||'';element.setAttribute('aria-describedby',id);showTimer=setTimeout(()=>{if(active!==element)return;tip.hidden=false;position();requestAnimationFrame(()=>tip.dataset.open='true')},showDelay)};const close=element=>{if(element&&element!==active)return;cancel(showTimer);if(!active)return;const current=active;current.removeAttribute('aria-describedby');tip.dataset.open='false';hideTimer=setTimeout(()=>{if(active!==current)return;tip.hidden=true;active=null},hideDelay)};document.addEventListener('pointerover',event=>{const element=trigger(event.target);if(element&&!element.contains(event.relatedTarget))open(element)});document.addEventListener('pointerout',event=>{const element=trigger(event.target);if(element&&!element.contains(event.relatedTarget))close(element)});document.addEventListener('focusin',event=>open(trigger(event.target)));document.addEventListener('focusout',event=>close(trigger(event.target)));document.addEventListener('keydown',event=>{if(event.key==='Escape')close()});window.addEventListener('resize',position,{passive:true});window.addEventListener('scroll',position,{passive:true,capture:true})})()`
+  return `(()=>{const id='dsh-workbench-tooltip',gap=6,showDelay=150,hideDelay=90;const tip=document.createElement('div');tip.id=id;tip.className='tooltip';tip.setAttribute('role','tooltip');tip.hidden=true;document.body.append(tip);let active=null,showTimer=0,hideTimer=0;const trigger=target=>target instanceof Element?target.closest('[data-tooltip]'):null;const cancel=timer=>{if(timer)clearTimeout(timer)};const position=()=>{if(!active||tip.hidden)return;const rect=active.getBoundingClientRect(),edge=6,width=tip.offsetWidth,height=tip.offsetHeight;let placement='right',left=rect.right+gap,top=rect.top+(rect.height-height)/2;if(left+width>innerWidth-edge&&rect.left-gap-width>=edge){placement='left';left=rect.left-gap-width}if((placement==='right'&&left+width>innerWidth-edge)||(placement==='left'&&left<edge)){placement=rect.top>=height+gap+edge?'top':'bottom';left=Math.min(Math.max(edge,rect.left+(rect.width-width)/2),innerWidth-width-edge);top=placement==='top'?rect.top-gap-height:rect.bottom+gap}if(active.closest('.dashboard-draft-actions')){placement=rect.top>=height+gap+edge?'top':'bottom';left=Math.min(Math.max(edge,rect.left+(rect.width-width)/2),innerWidth-width-edge);top=placement==='top'?rect.top-gap-height:rect.bottom+gap;}top=Math.min(Math.max(edge,top),innerHeight-height-edge);tip.dataset.placement=placement;tip.style.left=Math.round(left)+'px';tip.style.top=Math.round(top)+'px'};const open=element=>{if(!element)return;cancel(hideTimer);if(active===element&&!tip.hidden)return;cancel(showTimer);if(active&&active!==element)active.removeAttribute('aria-describedby');active=element;tip.dataset.draft=String(Boolean(element.closest('.dashboard-draft-actions')));tip.textContent=element.dataset.tooltip||'';element.setAttribute('aria-describedby',id);showTimer=setTimeout(()=>{if(active!==element)return;tip.hidden=false;position();requestAnimationFrame(()=>tip.dataset.open='true')},element.closest('.dashboard-draft-actions,.favorite-button')?300:showDelay)};const close=element=>{if(element&&element!==active)return;cancel(showTimer);if(!active)return;const current=active;current.removeAttribute('aria-describedby');tip.dataset.open='false';hideTimer=setTimeout(()=>{if(active!==current)return;tip.hidden=true;active=null},hideDelay)};document.addEventListener('pointerover',event=>{const element=trigger(event.target);if(element&&!element.contains(event.relatedTarget))open(element)});document.addEventListener('pointerout',event=>{const element=trigger(event.target);if(element&&!element.contains(event.relatedTarget))close(element)});document.addEventListener('focusin',event=>open(trigger(event.target)));document.addEventListener('focusout',event=>close(trigger(event.target)));document.addEventListener('keydown',event=>{if(event.key==='Escape')close()});window.addEventListener('resize',position,{passive:true});window.addEventListener('scroll',position,{passive:true,capture:true})})()`
 }
 
 /**
@@ -258,17 +258,17 @@ function behaviorV2(): string {
   async function loadNativeDelivery(sessionId){
     try{
       const response=await fetch(dashboardAgentApi()+'/native-sessions/'+encodeURIComponent(sessionId));
-      if(response.status===404){if(state.sessionId===sessionId&&state.stream){state.stream.error='该原生会话的交付记录暂不可用，请重试；不会创建替代会话。';refreshStream();}return;}
+      if(response.status===404){if(state.sessionId===sessionId&&state.stream){state.stream.error='该原生会话的交付记录暂不可用，请重试；不会创建替代会话。';refreshStream(false);}return;}
       const link=await response.json();if(!response.ok)throw new Error(link.error||'无法读取草稿');
       if(state.sessionId!==sessionId)return;
       state.dashboardAgentUploadId=link.uploadId;
       if(link.draft&&state.stream){const previous=state.stream.dashboardDraft;state.stream.dashboardDraft={...link.draft,previewed:Boolean(link.draft.previewed||(previous?.assetId===link.draft.assetId&&previous?.revision===link.draft.revision&&previous.previewed)),released:Boolean(link.draft.released||(previous?.assetId===link.draft.assetId&&previous?.revision===link.draft.revision&&previous.released))};}
-      ensureConversationHistory();refreshStream();
-    }catch(error){if(state.sessionId===sessionId){state.activity=error instanceof Error?error.message:'无法读取原生会话交付结果';if(state.stream)state.stream.error=state.activity;refreshStream();}}
+      ensureConversationHistory(false);refreshStream(false);
+    }catch(error){if(state.sessionId===sessionId){state.activity=error instanceof Error?error.message:'无法读取原生会话交付结果';if(state.stream)state.stream.error=state.activity;refreshStream(false);}}
   }
   const nativeAgentAnswer=agentAnswer;
   const renderConversationUpdate=refreshStream;
-  refreshStream=function(){if(state.stream?.nativeSessionId&&!document.querySelector('.new-page')){if(state.sessionId)persistActiveHistory();return;}renderConversationUpdate();};
+  refreshStream=function(touchActivity=true){if(state.stream?.nativeSessionId&&!document.querySelector('.new-page')){if(state.sessionId)persistActiveHistory(touchActivity);return;}renderConversationUpdate(touchActivity);};
   agentAnswer=function(){return (state.stream?.nativeSessionId?'<div id="native-conversation-seat" role="region" aria-label="看板原生对话" style="height:calc(100dvh - 300px);min-height:180px"></div>':'')+nativeAgentAnswer();};
   // Native SessionDriver owns the entire transcript, not one legacy seat per turn.
   const legacyConversationTurnsHtml=conversationTurnsHtml;
@@ -281,13 +281,14 @@ function behaviorV2(): string {
     if(event.source!==window.parent||event.origin!==location.origin||data.source!=='dsh-workbench')return;
     if(data.kind==='workbench-workspaces'){state.nativeWorkspaces=data.items;state.nativeWorkspaceId=(state.sessionId?data.selected:state.nativeWorkspaceId)||data.selected||((data.items||[]).length===1?data.items[0].workspaceId:'');document.getElementById('native-workspace')?.remove();showNativeWorkspace();return;}
     if(data.kind==='workbench-visible'){if(state.sessionId)void loadNativeDelivery(state.sessionId);return;}
-    if(data.kind==='native-session-state'&&data.sessionId===state.sessionId){const was=state.nativeRunning;state.nativeRunning=data.running;state.sending=data.running;if(was!==data.running){refreshStream();if(!data.running)void loadNativeDelivery(state.sessionId)}return;}
+    if(data.kind==='native-session-state'&&data.sessionId===state.sessionId){const was=state.nativeRunning;state.nativeRunning=data.running;state.sending=data.running;if(was!==data.running){refreshStream(false);if(!data.running)void loadNativeDelivery(state.sessionId)}return;}
     if(data.requestId!==state.requestId||!['native-session-bound','native-session-started','native-session-restored'].includes(data.kind))return;
     state.sessionId=data.sessionId;state.nativeSessionId=data.sessionId;state.dashboardAgentSessionId=null;
     if(state.stream){state.stream.nativeSessionId=data.sessionId;state.stream.live=false;state.stream.tools=[];state.stream.output='';}
     state.sending=data.kind==='native-session-bound'||Boolean(state.nativeRunning);state.runState='native';state.streamState='native';
     state.activity=data.kind==='native-session-started'?'已提交到 DSH 原生会话':'已连接原 DSH 会话';
-    ensureConversationHistory();refreshStream();void loadNativeDelivery(data.sessionId);
+    const touchActivity=data.kind!=='native-session-restored';
+    ensureConversationHistory(touchActivity);refreshStream(touchActivity);void loadNativeDelivery(data.sessionId);
   });
   const nativeReturnSession=new URLSearchParams(location.search).get('nativeSession');
   if(nativeReturnSession){state.sessionId=nativeReturnSession;state.nativeSessionId=nativeReturnSession;state.requestId=crypto.randomUUID();state.stream={question:'原生会话的看板交付',nativeSessionId:nativeReturnSession,tools:[],name:true};state.streamState='native';void loadNativeDelivery(nativeReturnSession);window.parent.postMessage({source:'dsh-workbench',kind:'load-session',requestId:state.requestId,sessionId:nativeReturnSession},location.origin);}
@@ -306,22 +307,33 @@ document.addEventListener('click',event=>{const select=event.target instanceof E
   // the native session bridge in the parent DSH UI.
   window.startHostAgentRun=startHostAgentRun;window.workbenchApiBase=dashboardAgentApi;
   // Delegation survives composer/native delivery rerenders. Do not bind detached buttons.
+  document.addEventListener('keydown',event=>{const target=event.target instanceof Element?event.target.closest('.draft-info[data-preview-draft]'):null;if(target&&(event.key==='Enter'||event.key===' ')){event.preventDefault();target.click();}});
+  document.addEventListener('click',event=>{const card=event.target instanceof Element?event.target.closest('.dashboard-draft-actions'):null;if(card&&event.target===card)card.querySelector('[data-preview-draft]')?.click();});
+  document.addEventListener('click',event=>{
+    const action=event.target instanceof Element?event.target.closest('[data-share-draft],[data-download-draft]'):null;
+    if(!action)return;event.preventDefault();event.stopImmediatePropagation();if(action.disabled)return;
+    if(action.hasAttribute('data-share-draft')){document.dispatchEvent(new CustomEvent('dsh:share-dashboard',{detail:{id:action.dataset.shareDraft,title:state.stream?.dashboardDraft?.title||'看板'}}));return;}
+    const assetId=action.dataset.downloadDraft,revision=action.dataset.draftRevision;if(!assetId||!revision)return;
+    const url='/assets/'+encodeURIComponent(assetId)+'/'+encodeURIComponent(revision)+'/dashboard.html';
+    action.disabled=true;action.setAttribute('aria-busy','true');
+    void (async()=>{try{const response=await fetch(url,{signal:AbortSignal.timeout(30000)});if(!response.ok)throw new Error('下载失败，请重试');const blob=await response.blob(),href=URL.createObjectURL(blob),link=document.createElement('a');link.href=href;link.download=(state.stream?.dashboardDraft?.title||'dashboard')+'.html';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(href),10000);}catch(error){historyToast(error instanceof Error?error.message:'下载失败，请重试');}finally{action.disabled=false;action.removeAttribute('aria-busy');}})();
+  },true);
   document.addEventListener('click',async event=>{
     const button=event.target instanceof Element?event.target.closest('[data-preview-draft],[data-release-draft]'):null;
-    if(!button||button.disabled)return;
+    if(!button||button.disabled||state.draftActionBusy)return;
     event.preventDefault();event.stopImmediatePropagation();
-    const releasing=button.hasAttribute('data-release-draft'),assetId=button.dataset.previewDraft||button.dataset.releaseDraft,revision=button.dataset.draftRevision;
+    const wantsRelease=button.hasAttribute('data-release-draft'),releasing=wantsRelease&&Boolean(state.stream?.dashboardDraft?.previewed),assetId=button.dataset.previewDraft||button.dataset.releaseDraft,revision=button.dataset.draftRevision;
     if(!assetId||!revision)return;
-    if(releasing&&(!state.stream?.dashboardDraft?.previewed||!confirm('确认将当前预览版本发布到“我的看板”吗？')))return;
+    if(releasing&&!confirm('确认将当前预览版本发布到“我的看板”吗？'))return;
     const sessionId=state.sessionId,preview=releasing?null:window.open('about:blank','_blank');
-    button.disabled=true;
+    state.draftActionBusy=true;button.disabled=true;button.setAttribute('aria-busy','true');
     try{
       const response=await fetch(dashboardAgentApi()+'/dashboard-drafts/'+encodeURIComponent(assetId)+'/'+encodeURIComponent(revision)+'/'+(releasing?'release':'preview'),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(releasing?{confirmed:true}:{}),signal:AbortSignal.timeout(30000)});
       const payload=await response.json();if(!response.ok)throw new Error(payload.error||'操作失败，请重试');
-      if(!releasing){if(preview){preview.opener=null;preview.location.assign(payload.previewUrl);}else throw new Error('浏览器阻止了预览窗口，请允许弹出窗口后重试。');}
+      if(!releasing){if(preview){preview.opener=null;preview.location.assign(payload.previewUrl);}else throw new Error('浏览器阻止了预览窗口，请允许弹出窗口后重试。');if(wantsRelease)historyToast('已打开当前版本预览，请检查后再次点击发布看板。');}
       if(state.sessionId===sessionId&&state.stream?.dashboardDraft?.assetId===assetId&&state.stream.dashboardDraft.revision===revision){state.stream.dashboardDraft[releasing?'released':'previewed']=true;delete state.stream.error;refreshStream();}
     }catch(error){preview?.close();if(state.sessionId===sessionId&&state.stream){state.stream.error=error instanceof Error?error.message:'操作失败，请重试';refreshStream();}}
-    finally{if(button.isConnected)button.disabled=false;}
+    finally{state.draftActionBusy=false;if(state.sessionId===sessionId)refreshStream();else if(button.isConnected){button.disabled=false;button.removeAttribute('aria-busy');}}
   },true);
   render();renderHistory();
   // The standalone local development page keeps its separate Run API.

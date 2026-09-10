@@ -1,6 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { runInNewContext } from 'node:vm'
 import { afterEach, expect, it } from 'vitest'
 import { FilesystemKnowledgeLibrary } from '../src/library/filesystem-library.js'
 import { dashboardCatalog, dashboardVersions } from '../src/local-app/dashboard-catalog.js'
@@ -10,6 +11,31 @@ import { conversationSnapshot } from '../src/local-app/conversation-share.js'
 import { renderLocalWorkbenchPage } from '../src/local-app/page.js'
 
 const roots: string[] = []
+it('preserves history order through native restore, status snapshot and delivery hydration', async () => {
+  const page = renderLocalWorkbenchPage()
+  const fn = (name: string, next: string) => page.slice(page.indexOf('function '+name+'('), page.indexOf(next, page.indexOf('function '+name+'(')))
+  const listeners: Array<(event: unknown) => void> = []
+  const state = { sessionId: 'old', requestId: 'request', history: [
+    { sessionId: 'new', title: 'New', createdAt: 200, activityAt: 200 },
+    { sessionId: 'old', title: 'Old', createdAt: 100, activityAt: 100 },
+  ], stream: { nativeSessionId: 'old' }, nativeRunning: undefined }
+  const parent = {}, context = { state, Date, window: { parent, addEventListener: (_: string, listener: (event: unknown) => void) => listeners.push(listener) },
+    location: { origin: 'http://localhost' }, document: { querySelector: () => ({}) }, saveHistory: () => {}, renderHistory: () => {},
+    dashboardAgentApi: () => '/api', fetch: async () => ({ status: 200, ok: true, json: async () => ({ uploadId: 'upload' }) }),
+    renderConversationUpdate: (touch: boolean) => runInNewContext('persistActiveHistory('+touch+')', context) }
+  runInNewContext(fn('persistActiveHistory', 'function restoreHistory') + fn('ensureConversationHistory', '\n  const isCurrentUpload=') +
+    'async '+fn('loadNativeDelivery', '  const nativeAgentAnswer=') +
+    page.slice(page.indexOf('refreshStream=function('), page.indexOf('  agentAnswer=function', page.indexOf('refreshStream=function('))) +
+    page.slice(page.indexOf("  window.addEventListener('message',event=>{\n    const data=event.data||{};"), page.indexOf('  const nativeReturnSession=')), context)
+  const dispatch = (data: Record<string, unknown>) => listeners.forEach(listener => listener({ source: parent, origin: 'http://localhost', data: { source: 'dsh-workbench', requestId: 'request', sessionId: 'old', ...data } }))
+  dispatch({ kind: 'native-session-restored' })
+  dispatch({ kind: 'native-session-state', running: false })
+  await runInNewContext("loadNativeDelivery('old')", context)
+  expect([...state.history].sort((a,b) => b.activityAt-a.activityAt).map(item => item.sessionId)).toEqual(['new','old'])
+  expect(state.history.find(item => item.sessionId === 'old')?.activityAt).toBe(100)
+  dispatch({ kind: 'native-session-started' })
+  expect(state.history.find(item => item.sessionId === 'old')!.activityAt).toBeGreaterThan(200)
+})
 afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }) })
 const csv = 'date,category,planned,published,views,conversions,revenue\n2026-08-17,Test,2,2,1000,50,1000'
 
@@ -52,4 +78,7 @@ it('keeps generated browser scripts valid and replaces misleading interactions',
   expect(page.includes("status:'published',currentVersion:1")).toBe(false)
   expect(page.includes("toast('正在以只读方式查看历史版本')")).toBe(false)
   expect(page.includes('data-agent="经营分析智能体"')).toBe(false)
+  expect(page.includes('function persistActiveHistory(touchActivity=true)')).toBe(true)
+  expect(page.includes("persistActiveHistory(false);render();renderHistory();return}if(data.kind==='history-load-failed'")).toBe(true)
+  expect(page.includes("history-load-failed'){state.activity=typeof data.message==='string'?data.message:state.activity;refreshStream(false)")).toBe(true)
 })

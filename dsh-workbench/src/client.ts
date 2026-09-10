@@ -213,7 +213,7 @@ export function apply(ctx: ClientContext): void {
       const left = composer?.left ?? rect.left
       const width = composer?.width ?? rect.width
       const delivery = doc!.querySelector<HTMLElement>('.chat-thread > .agent-message')
-      if (delivery && composer) Object.assign(delivery.style, { position: 'fixed', left: left + 'px', width: width + 'px', maxWidth: 'none', bottom: ((doc!.defaultView?.innerHeight ?? window.innerHeight) - composer.top + 12) + 'px', zIndex: '7', padding: '0' })
+      if (delivery && composer) Object.assign(delivery.style, { position: 'fixed', left: left + 'px', width: width + 'px', maxWidth: 'none', bottom: ((doc!.defaultView?.innerHeight ?? window.innerHeight) - composer.top + 8) + 'px', zIndex: '7', padding: '0' })
       const deliveryHeight = delivery?.getBoundingClientRect().height ?? 0
       const height = Math.max(160, (composer?.top ?? rect.bottom) - 24 - (deliveryHeight ? deliveryHeight + 12 : 0))
       seat!.style.height = height + 'px'

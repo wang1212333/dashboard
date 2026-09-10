@@ -62,7 +62,7 @@ describe('local import app', () => {
     expect(page).toContain('conversationTurnsHtml')
     expect(page).toContain('return state.stream?.nativeSessionId?agentAnswer():legacyConversationTurnsHtml()')
     expect(page).toContain('ensureConversationHistory')
-    expect(page).toContain('function ensureConversationHistory()')
+    expect(page).toContain('function ensureConversationHistory(touchActivity=true)')
     expect(page).toContain('const logicalId=state.sessionId||state.dashboardAgentSessionId')
     expect(page).toContain('state.dashboardAgentSessionId=agentSessionId;if(!state.sessionId)state.sessionId=agentSessionId')
     expect(page).toContain('sameConversation=(left,right)')
