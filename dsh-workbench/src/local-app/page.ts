@@ -262,7 +262,7 @@ function behaviorV2(): string {
       const link=await response.json();if(!response.ok)throw new Error(link.error||'无法读取草稿');
       if(state.sessionId!==sessionId)return;
       state.dashboardAgentUploadId=link.uploadId;
-      if(link.draft&&state.stream){const previous=state.stream.dashboardDraft;state.stream.dashboardDraft={...link.draft,previewed:Boolean(link.draft.previewed||(previous?.assetId===link.draft.assetId&&previous?.revision===link.draft.revision&&previous.previewed)),released:Boolean(link.draft.released||(previous?.assetId===link.draft.assetId&&previous?.revision===link.draft.revision&&previous.released))};}
+      if(state.stream){const previous=state.stream.dashboardDrafts||(state.stream.dashboardDraft?[state.stream.dashboardDraft]:[]);state.stream.dashboardDrafts=(link.drafts||(link.draft?[link.draft]:[])).map(draft=>{const old=previous.find(item=>item.assetId===draft.assetId&&item.revision===draft.revision);return {...draft,previewed:Boolean(draft.previewed||old?.previewed),released:Boolean(draft.released||old?.released)}});state.stream.dashboardDraft=state.stream.dashboardDrafts.find(item=>item.assetId===link.draft?.assetId)||state.stream.dashboardDrafts.at(-1);}
       ensureConversationHistory(false);refreshStream(false);
     }catch(error){if(state.sessionId===sessionId){state.activity=error instanceof Error?error.message:'无法读取原生会话交付结果';if(state.stream)state.stream.error=state.activity;refreshStream(false);}}
   }
@@ -312,26 +312,36 @@ document.addEventListener('click',event=>{const select=event.target instanceof E
   document.addEventListener('click',event=>{
     const action=event.target instanceof Element?event.target.closest('[data-share-draft],[data-download-draft]'):null;
     if(!action)return;event.preventDefault();event.stopImmediatePropagation();if(action.disabled)return;
-    if(action.hasAttribute('data-share-draft')){document.dispatchEvent(new CustomEvent('dsh:share-dashboard',{detail:{id:action.dataset.shareDraft,title:state.stream?.dashboardDraft?.title||'看板'}}));return;}
+    if(action.hasAttribute('data-share-draft')){document.dispatchEvent(new CustomEvent('dsh:share-dashboard',{detail:{id:action.dataset.shareDraft,title:(state.stream?.dashboardDrafts||[state.stream?.dashboardDraft]).find(item=>item?.assetId===action.dataset.shareDraft)?.title||'看板'}}));return;}
     const assetId=action.dataset.downloadDraft,revision=action.dataset.draftRevision;if(!assetId||!revision)return;
     const url='/assets/'+encodeURIComponent(assetId)+'/'+encodeURIComponent(revision)+'/dashboard.html';
     action.disabled=true;action.setAttribute('aria-busy','true');
-    void (async()=>{try{const response=await fetch(url,{signal:AbortSignal.timeout(30000)});if(!response.ok)throw new Error('下载失败，请重试');const blob=await response.blob(),href=URL.createObjectURL(blob),link=document.createElement('a');link.href=href;link.download=(state.stream?.dashboardDraft?.title||'dashboard')+'.html';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(href),10000);}catch(error){historyToast(error instanceof Error?error.message:'下载失败，请重试');}finally{action.disabled=false;action.removeAttribute('aria-busy');}})();
+    void (async()=>{try{const response=await fetch(url,{signal:AbortSignal.timeout(30000)});if(!response.ok)throw new Error('下载失败，请重试');const blob=await response.blob(),href=URL.createObjectURL(blob),link=document.createElement('a');link.href=href;link.download=((state.stream?.dashboardDrafts||[state.stream?.dashboardDraft]).find(item=>item?.assetId===assetId)?.title||'dashboard')+'.html';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(href),10000);}catch(error){historyToast(error instanceof Error?error.message:'下载失败，请重试');}finally{action.disabled=false;action.removeAttribute('aria-busy');}})();
   },true);
   document.addEventListener('click',async event=>{
     const button=event.target instanceof Element?event.target.closest('[data-preview-draft],[data-release-draft]'):null;
     if(!button||button.disabled||state.draftActionBusy)return;
     event.preventDefault();event.stopImmediatePropagation();
-    const wantsRelease=button.hasAttribute('data-release-draft'),releasing=wantsRelease&&Boolean(state.stream?.dashboardDraft?.previewed),assetId=button.dataset.previewDraft||button.dataset.releaseDraft,revision=button.dataset.draftRevision;
+    const assetId=button.dataset.previewDraft||button.dataset.releaseDraft,revision=button.dataset.draftRevision,draft=(state.stream?.dashboardDrafts||[state.stream?.dashboardDraft]).find(item=>item?.assetId===assetId&&item.revision===revision),wantsRelease=button.hasAttribute('data-release-draft'),releasing=wantsRelease&&Boolean(draft?.previewed);
     if(!assetId||!revision)return;
-    if(releasing&&!confirm('确认将当前预览版本发布到“我的看板”吗？'))return;
-    const sessionId=state.sessionId,preview=releasing?null:window.open('about:blank','_blank');
+    if(releasing&&!confirm('确认发布当前预览版本吗？实时看板将自动部署到服务器，成功后不依赖本机运行。'))return;
+    const sessionId=state.sessionId,preview=window.open('about:blank','_blank');
+    if(releasing&&!preview){historyToast('请允许弹出窗口后重试发布');return;}
     state.draftActionBusy=true;button.disabled=true;button.setAttribute('aria-busy','true');
     try{
       const response=await fetch(dashboardAgentApi()+'/dashboard-drafts/'+encodeURIComponent(assetId)+'/'+encodeURIComponent(revision)+'/'+(releasing?'release':'preview'),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(releasing?{confirmed:true}:{}),signal:AbortSignal.timeout(30000)});
       const payload=await response.json();if(!response.ok)throw new Error(payload.error||'操作失败，请重试');
+      if(releasing){
+        if(payload.serverDeployment){
+          if(state.sessionId===sessionId){state.activity='正在发布到服务器…';refreshStream();}
+          const publication=await window.dshDeployReleased({assetId,publishUrl:payload.serverDeployment.publishUrl,prepared:payload.serverDeployment,popup:preview});
+          if(draft){draft.serverPending=false;draft.serverUrl=publication.url;}
+          if(state.sessionId===sessionId)state.activity='已发布到服务器';
+          historyToast('已发布到服务器，可直接分享到飞书');
+        }else{preview?.close();if(state.sessionId===sessionId)state.activity='已发布到我的看板';historyToast('已发布到我的看板');}
+      }
       if(!releasing){if(preview){preview.opener=null;preview.location.assign(payload.previewUrl);}else throw new Error('浏览器阻止了预览窗口，请允许弹出窗口后重试。');if(wantsRelease)historyToast('已打开当前版本预览，请检查后再次点击发布看板。');}
-      if(state.sessionId===sessionId&&state.stream?.dashboardDraft?.assetId===assetId&&state.stream.dashboardDraft.revision===revision){state.stream.dashboardDraft[releasing?'released':'previewed']=true;delete state.stream.error;refreshStream();}
+      if(state.sessionId===sessionId){const current=(state.stream?.dashboardDrafts||[state.stream?.dashboardDraft]).find(item=>item?.assetId===assetId&&item.revision===revision);if(current){current[releasing?'released':'previewed']=true;delete state.stream.error;refreshStream();}}
     }catch(error){preview?.close();if(state.sessionId===sessionId&&state.stream){state.stream.error=error instanceof Error?error.message:'操作失败，请重试';refreshStream();}}
     finally{state.draftActionBusy=false;if(state.sessionId===sessionId)refreshStream();else if(button.isConnected){button.disabled=false;button.removeAttribute('aria-busy');}}
   },true);

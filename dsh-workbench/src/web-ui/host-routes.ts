@@ -1,3 +1,9 @@
+import { readLiveRequest } from '../live-dashboard/request.js'
+import type { LiveService } from '../live-dashboard/service.js'
+import { withEmbeddedQueryBridge } from '../live-dashboard/preview-bridge.js'
+import { shareBase } from '../live-dashboard/sharing.js'
+import { serverPublication } from '../live-dashboard/server-publications.js'
+import { ServerDeployment, deploymentConfig } from '../live-dashboard/server-deployment.js'
 import { ConversationShareStore, renderConversationShare } from '../local-app/conversation-share.js'
 import { publishOnline } from '../local-app/online-publish.js'
 import { dashboardShareState, createDashboardShare, revokeDashboardShare, dashboardFeishu } from '../local-app/dashboard-sharing.js'
@@ -92,7 +98,8 @@ type WorkbenchModel = {
   generateDashboard(input: { csv: string; fileName: string; businessGoal: string }, signal?: AbortSignal, onTextDelta?: (delta: string) => void): Promise<{ html: string; title: string; summary: string }>
 }
 
-export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?: WorkbenchModel, uploadRoot = './dsh-workbench-library', headlessAgents?: HeadlessDashboardAgentService, nativeSessions = new NativeWorkbenchSessions(uploadRoot)): WebRoute[] {
+export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?: WorkbenchModel, uploadRoot = './dsh-workbench-library', headlessAgents?: HeadlessDashboardAgentService, nativeSessions = new NativeWorkbenchSessions(uploadRoot), live?: LiveService): WebRoute[] {
+  const deployment=live?new ServerDeployment(uploadRoot,library,live):undefined
   const uploads = new AgentUploadStore(uploadRoot)
   const history = new WorkbenchHistoryStore(resolve(uploadRoot, 'history', 'build-history.json'))
   const shares = new ConversationShareStore(resolve(uploadRoot, 'history', 'shares'))
@@ -127,7 +134,11 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
   const asset = (request: IncomingMessage, response: ServerResponse, url: URL): Promise<void> | void => {
     const match = /^\/dsh-workbench\/assets\/([a-z][a-z0-9-]{2,62})\/(rev-\d{4})\/(dashboard|source)\.html$/.exec(url.pathname)
     if (!match || !ASSET.test(match[1]) || !REVISION.test(match[2])) return json(response, 404, { error: 'ROUTE_NOT_FOUND' })
-    return library.readRevision(match[1], match[2]).then(stored => { if (match[3] === 'source') source(response, stored.html); else page(response, stored.html) })
+    return library.readRevision(match[1], match[2]).then(async stored => {
+      if (match[3] === 'source') return source(response, stored.html)
+      const binding = live ? await live.find(match[1],match[2]) : undefined
+      page(response, binding ? withEmbeddedQueryBridge(stored.html,binding.id) : stored.html)
+    })
   }
   return [
     guarded((_request, response, url) => {
@@ -145,15 +156,42 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
       if (!isTrustedBrowser(request)) return json(response, 403, { error: 'FORBIDDEN' })
       const url = new URL(request.url ?? '/', 'http://127.0.0.1')
       try {
+        const embeddedQuery = /^\/api\/dsh-workbench\/live-preview\/([a-z][a-z0-9-]{2,62})\/(rev-\d{4})$/.exec(url.pathname)
+        if(['GET','POST'].includes(request.method||'')&&embeddedQuery&&live){
+          if(request.headers.origin && request.headers.origin!==`http://${request.headers.host}`) return json(response,403,{error:'FORBIDDEN'})
+          const binding=await live.find(embeddedQuery[1],embeddedQuery[2])
+          if(!binding)return json(response,404,{error:'实时版本不存在'})
+          return json(response,200,await live.request(binding.id,await readLiveRequest(request,url)))
+        }
+        const liveQuery = /^\/api\/dsh-workbench\/live\/([a-f0-9-]{36})\/query$/.exec(url.pathname)
+        if(['GET','POST'].includes(request.method||'')&&liveQuery&&live)return json(response,200,await live.request(liveQuery[1],await readLiveRequest(request,url)))
         const feishuRoute = /^\/api\/dsh-workbench\/dashboards\/([a-z][a-z0-9-]{2,62})\/feishu$/.exec(url.pathname)
         if(feishuRoute) {
           if(!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(request.socket.remoteAddress||'') || (request.headers.origin && request.headers.origin !== `http://${request.headers.host}`)) return json(response,403,{error:'FORBIDDEN'})
           if(!['GET','POST'].includes(request.method||'')) return json(response,405,{error:'METHOD_NOT_ALLOWED'})
-          return json(response,200,await dashboardFeishu(feishuRoute[1],request.method!,request.method==='POST'?await readJson(request):{}))
+          return json(response,200,await dashboardFeishu(feishuRoute[1],request.method!,request.method==='POST'?await readJson(request):{},{library,live}))
         }
-        const sharing = /^\/api\/dsh-workbench\/dashboards\/([a-z][a-z0-9-]{2,62})\/shares$/.exec(url.pathname)
+          const deployRoute = /^\/api\/dsh-workbench\/dashboards\/([a-z][a-z0-9-]{2,62})\/server-publication$/.exec(url.pathname)
+          if(deployRoute){
+            if(!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(request.socket.remoteAddress||'') || (request.headers.origin && request.headers.origin !== `http://${request.headers.host}`)) return json(response,403,{error:'FORBIDDEN'})
+            if(request.method!=='POST')return json(response,405,{error:'METHOD_NOT_ALLOWED'})
+            if(!deployment)throw Error('实时看板服务未启用')
+            const body=await readJson(request)
+            if(body.action==='prepare')return json(response,200,await deployment.prepare(deployRoute[1]))
+            if(body.action==='confirm')return json(response,200,await deployment.confirm(deployRoute[1],body))
+            return json(response,400,{error:'不支持的部署操作'})
+          }
+          const sharing = /^\/api\/dsh-workbench\/dashboards\/([a-z][a-z0-9-]{2,62})\/shares$/.exec(url.pathname)
         if (sharing) {
           if (request.headers.origin && request.headers.origin !== `http://${request.headers.host}`) return json(response,403,{error:'FORBIDDEN'})
+          const asset=await library.getAsset(sharing[1])
+          const binding=live?await live.find(sharing[1],asset.releasedRevision||asset.latestRevision):undefined
+          if(binding&&live){
+            if(request.method==='GET')return json(response,200,{...await live.shareState(sharing[1]),serverPublication:await serverPublication(library,sharing[1]),serverDeployUrl:(await deploymentConfig())?.publishUrl})
+            const body=await readJson(request)
+            if(request.method==='POST')return json(response,200,await live.createShare(sharing[1],Number(body.days),shareBase()))
+            if(request.method==='DELETE')return json(response,200,await live.revoke(sharing[1],body.token))
+          }
           if (request.method === 'GET') return json(response,200,await dashboardShareState(library,sharing[1]))
           const body=await readJson(request)
           if (request.method === 'POST') return json(response,200,await createDashboardShare(library,sharing[1],body.days))
@@ -176,7 +214,12 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
         }
         if (request.method === 'GET' && url.pathname === `${API}/dashboards`) {
           const includeDrafts = url.searchParams.get('includeDrafts') === 'true'
-          const dashboards = await dashboardCatalog(library, '/dsh-workbench', includeDrafts, nativeSessions)
+          const catalog = await dashboardCatalog(library, '/dsh-workbench', includeDrafts, nativeSessions)
+          const dashboards=await Promise.all(catalog.map(async item=>{
+            if(!live||!await live.find(item.id,item.revision))return item
+            const publication=await serverPublication(library,item.id),serverUrl=publication?.revision===item.revision?publication.url:undefined
+            return {...item,live:true,serverUrl,serverPending:item.status==='published'&&!serverUrl,status:item.status==='published'&&!serverUrl?'draft':item.status,description:!serverUrl&&item.status==='published'?'待完成服务器发布 · '+item.description:item.description}
+          }))
           return json(response, 200, { dashboards })
         }
         const versions = /^\/api\/dsh-workbench\/dashboards\/([a-z][a-z0-9-]{2,62})\/versions$/.exec(url.pathname)
@@ -198,8 +241,14 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
           }
           const body = await readJson(request)
           if (body.confirmed !== true) throw new Error('PUBLISH_CONFIRMATION_REQUIRED')
-          const release = await library.release(assetId, revision, { approvalId: `user-confirmed:${randomUUID()}` })
-          return json(response, 200, { release, dashboardUrl: `/dsh-workbench/assets/${encodeURIComponent(assetId)}/${release.revision}/dashboard.html` })
+          const binding=live?await live.find(assetId,revision):undefined
+          if(binding&&(!deployment||!await deploymentConfig()))throw Error('实时看板需要服务器发布连接，请先配置服务器后重试')
+          const stored=await library.readRevision(assetId,revision)
+          if(stored.revision.stage==='released'&&stored.asset.releasedRevision!==revision)throw Error('请从版本记录处理历史版本，当前发布入口不能切换旧版本')
+          const release = stored.revision.stage==='released'?{assetId,revision}:await library.release(assetId, revision, { approvalId: `user-confirmed:${randomUUID()}` })
+          const prepared=binding?await deployment!.prepare(assetId):undefined
+          if(prepared&&prepared.bundle.revision.revision!==revision)throw Error('发布版本已变化，请重试')
+          return json(response, 200, { release, serverDeployment:prepared, publicationStatus:binding?'deploying':'published', dashboardUrl: `/dsh-workbench/assets/${encodeURIComponent(assetId)}/${release.revision}/dashboard.html` })
         }
         if (request.method === 'POST' && url.pathname === `${API}/analyze`) {
           const body = await readJson(request)
@@ -274,12 +323,14 @@ export function makeWorkbenchWebRoutes(library: KnowledgeLibrary, modelAnalyzer?
         const nativeDelivery = new RegExp(`^${API}/native-sessions/((?:session-)?[a-f0-9-]{36})$`).exec(url.pathname)
         if (request.method === 'GET' && nativeDelivery) {
           const link = await nativeSessions.read(nativeDelivery[1])
-          let draft: (NonNullable<typeof link>['draft'] & { previewed: boolean; released: boolean }) | undefined
-          if (link?.draft) {
-            const stored = await library.readRevision(link.draft.assetId, link.draft.revision)
-            draft = { ...link.draft, previewed: stored.revision.stage !== 'draft', released: stored.asset.releasedRevision === link.draft.revision }
-          }
-          return json(response, link ? 200 : 404, link ? { sessionId: link.sessionId, uploadId: link.uploadId, uploadIds: link.uploadIds, draft } : { error: 'NATIVE_SESSION_LINK_NOT_FOUND' })
+          const drafts = await Promise.all((link?.drafts ?? (link?.draft ? [link.draft] : [])).map(async item => {
+            const stored = await library.readRevision(item.assetId, item.revision)
+            const isLive=Boolean(live&&await live.find(item.assetId,item.revision)),publication=isLive?await serverPublication(library,item.assetId):undefined
+            const localReleased=stored.asset.releasedRevision===item.revision
+            return { ...item, live:isLive, serverPending:isLive&&localReleased&&publication?.revision!==item.revision, previewed: stored.revision.stage !== 'draft', released: localReleased&&(!isLive||publication?.revision===item.revision) }
+          }))
+          const draft = drafts.find(item => item.assetId === link?.draft?.assetId) ?? drafts.at(-1)
+          return json(response, link ? 200 : 404, link ? { sessionId: link.sessionId, uploadId: link.uploadId, uploadIds: link.uploadIds, draft, drafts } : { error: 'NATIVE_SESSION_LINK_NOT_FOUND' })
         }
         if (request.method === 'POST' && url.pathname === `${API}/dashboard-agent-sessions`) {
           if (!headlessAgents) throw new Error('DASHBOARD_AGENT_NOT_CONFIGURED')

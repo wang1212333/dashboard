@@ -1,4 +1,4 @@
-import { feishuService, dashboardCard } from './feishu.mjs';
+import { feishuService, dashboardCard, liveDashboardCard } from './feishu.mjs';
 import { createServer } from 'node:http';
 import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename, readdir } from 'node:fs/promises';
@@ -78,6 +78,22 @@ export async function createOnlineServer(config) {
       }
       if (!path.startsWith('/api/')) fail(404, '未找到页面');
       auth(req);
+      if(req.method==='POST' && path==='/api/feishu/send-live') {
+        const input=await body(req);
+        if(!idPattern.test(input.assetId)||!revisionPattern.test(input.revision)||typeof input.title!=='string'||!input.title.trim()||input.title.length>200||!['jupyter','lan'].includes(input.access)||typeof input.url!=='string'||input.url.length>2048||input.note!==undefined&&(typeof input.note!=='string'||input.note.length>500))fail(400,'实时看板发送内容无效');
+        let target;try{target=new URL(input.url);}catch{fail(400,'实时看板地址无效');}
+        if(target.username||target.password||target.search||target.hash)fail(400,'实时看板地址无效');
+        if(input.access==='jupyter'){
+          if(target.protocol!=='https:'||!['/static/dsh-live-server/'+input.assetId+'.html','/static/dsh-live-server/'+input.assetId+'/'+input.revision+'.html'].includes(target.pathname))fail(400,'服务器实时看板地址无效');
+        }else{
+          const parts=target.hostname.split('.').map(Number);
+          const privateIp=isIP(target.hostname)===4&&(parts[0]===10||parts[0]===192&&parts[1]===168||parts[0]===172&&parts[1]>=16&&parts[1]<=31);
+          if(!/^\/s\/[a-f0-9]{48}$/.test(target.pathname)||!Number.isFinite(Date.parse(input.expiresAt))||Date.parse(input.expiresAt)<=Date.now()||target.protocol!=='https:'&&!(config.allowLanHttp&&target.protocol==='http:'&&privateIp))fail(400,'实时内网链接无效或已过期');
+        }
+        const card=liveDashboardCard(input);
+        if(input.preview===true)return json(res,200,{preview:true,card,configured:feishu.status().configured});
+        return json(res,200,await feishu.send(input,card));
+      }
       if (req.method === 'GET' && path === '/api/shares') {
         const id = url.searchParams.get('assetId');
         if (!idPattern.test(id)) fail(400, '看板无效');
@@ -131,6 +147,7 @@ export async function createOnlineServer(config) {
         const release=await read(releasePath(share.assetId,share.revision));
         if(!release)fail(404,'看板版本不存在');
         const card=dashboardCard(release,share,publicUrl.origin+base+'/s/'+input.token,input.note||'');
+        if(input.preview===true)return json(res,200,{preview:true,card,configured:feishu.status().configured});
         return json(res,200,await feishu.send(input,card));
       }
       fail(404, '接口不存在');

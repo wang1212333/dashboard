@@ -11,6 +11,15 @@ export function dashboardCard(release, share, url, note='') {
     {tag:'button',text:{tag:'plain_text',content:'查看看板'},type:'primary_filled',width:'fill',behaviors:[{type:'open_url',default_url:url,pc_url:'',ios_url:'',android_url:''}]}
   ]}};
 }
+export function liveDashboardCard(input) {
+  const server=input.access==='jupyter';
+  return {schema:'2.0',config:{width_mode:'compact'},header:{template:'blue',title:{tag:'plain_text',content:input.title},subtitle:{tag:'plain_text',content:server?'实时看板 · 服务器版本':'实时看板 · 本机内网版本'}},body:{elements:[
+    {tag:'div',text:{tag:'plain_text',content:`版本 ${input.revision}\n打开后按看板设置自动查询数据`}},
+    ...(input.note?[{tag:'div',text:{tag:'plain_text',content:input.note}}]:[]),
+    {tag:'div',text:{tag:'plain_text',content:server?'需已有 Jupyter 登录权限并连接公司网络。查询在服务器执行，不依赖分享人的电脑在线。此入口未设置分享有效期。':`有效期至 ${new Date(input.expiresAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false})}（北京时间）\n请连接公司网络；分享人的电脑须保持在线。链接过期或撤销后无法访问。`}},
+    {tag:'button',text:{tag:'plain_text',content:'打开实时看板'},type:'primary_filled',width:'fill',behaviors:[{type:'open_url',default_url:input.url,pc_url:'',ios_url:'',android_url:''}]}
+  ]}};
+}
 export async function feishuService(root, config, fetcher=fetch) {
   const file=join(root,'feishu-private.json');
   let saved={};

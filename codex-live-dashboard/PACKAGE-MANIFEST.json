@@ -1,0 +1,17 @@
+{
+  "gateway.py": "46e4c7ebaa282e82f86aaf31e2e10e462d57ddaaa4bcfb1ace59e81c5df77acc",
+  "query_runtime.py": "59ba8cf4dc3488992b7032ca9f72e74579a9c743c2231d1a06b97bff94c7c398",
+  "server.py": "9290d42d3807ba7e12d9cee7b6675344b794a2cb3f31775321f54dad67c08808",
+  "sharing.py": "9db535c461133e282266e012ff81a6fc1bf24c77335a2662e3678bdbf5aa05c7",
+  "index.html": "381b345009b8bccaaf9b9582fe827fc3aae3597a59d764cc48348eaf04ee5f15",
+  "test_dashboard.py": "32198cea51f9db6a1296f23323d762b4c3a6345af86ebcc29d3ffe352b7f07b5",
+  "test_runtime.py": "9828833d265e3ec176d66264a2a1577a765fa96335e97b12e56df75ff336afa4",
+  "test_sharing.py": "829707773c720dc1ae9e44f6f1c4422ea07f7126ba3aea27e70e50653255d956",
+  "README.md": "736b102e27c711296bc54ebbfae4bf64a697cb0e6264c22e16e0339ce30af0a9",
+  "TECHNICAL-HANDOFF.md": "60f4f948eb96a428f6305b18d050e8a259e9f7e005557d45385c2d17b6fffed0",
+  "SHARE-GUIDE.md": "30dc160fc8ad35ec259eaddb9b307603a1858f2f3fce5cc049a20fac6e215e1e",
+  "DELIVERY-NOTES.md": "3ae8a73c956a81d556a042010d5464ce31b4ad6245818370f0f6b4eba05e6b70",
+  "config.example.toml": "1935e50bc5a4f2bbd89cad87c0d6fe99da63ecb74eabb107e3cfe8849ffd7290",
+  "LIEFLAT-LICENSE.txt": "ffcca38841adb694b6f380647e15f17c446a4d1656fed51a1e2041d064c94cc8",
+  ".gitignore": "fb0d2e1d59813eab057eee23f705679d05e20d6372c90f9b0d55cc9eb8b94a85"
+}

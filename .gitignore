@@ -29,3 +29,10 @@ dsh-workbench-library/history/
 Thumbs.db
 .idea/
 .vscode/
+
+# Generated delivery packages, browser captures and local business-data evidence
+/deliverables/
+/dsh-workbench/artifacts/
+/codex-live-dashboard/jupyter-deployment-verified.png
+**/__pycache__/
+*.pyc

@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { startLocalWorkbenchApp, type RunningLocalWorkbenchApp } from '../src/local-app/server.js'
 import { renderLocalWorkbenchPage } from '../src/local-app/page.js'
+import { dashboardSharingBehavior } from '../src/local-app/dashboard-sharing-ui.js'
 
 const csv = `date,category,planned,published,views,conversions,revenue
 2026-08-24,种草内容,2,2,1000,50,1000
@@ -53,7 +54,8 @@ describe('local import app', () => {
     expect(page).toContain('streamRenderPending')
     expect(page).not.toContain('pauseLatestFollow')
     expect(page).not.toContain('scheduleFollowLatest')
-    expect(page).not.toContain('window.scrollTo')
+    // Dialog close restores the background position; conversation streaming must not scroll the window.
+    expect(page.replace(dashboardSharingBehavior(), '')).not.toContain('window.scrollTo')
     expect(page).toContain('const csv=await selectedFile.text()')
     expect(page).toContain('if(s.output)html+=assistantParagraphs(s.output)')
     expect(page).not.toContain('queueCsvUpload')
@@ -69,7 +71,7 @@ describe('local import app', () => {
     expect(page).toContain("event.type==='dashboard.draft.ready'")
     expect(page).toContain('data-preview-draft')
     expect(page).toContain('data-release-draft')
-    expect(page.split('if(s.dashboardDraft)').length - 1).toBe(2)
+    expect(page.split('for(const draft of s.dashboardDrafts||').length - 1).toBe(2)
     expect(page).toContain('fetch(window.workbenchApiBase()')
     expect(page).not.toContain("fetch(api+'/dashboard-agent-sessions/'")
     expect(page).toContain('const csv=await selectedFile.text()')

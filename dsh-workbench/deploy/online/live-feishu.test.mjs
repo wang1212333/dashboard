@@ -1,0 +1,37 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {createOnlineServer} from './server.mjs';
+test('live Feishu preview requires admin authorization, reflects access and never sends',async t=>{
+ const root=await mkdtemp(join(tmpdir(),'live-feishu-'));
+ let sent=0;const token='x'.repeat(48);
+ const server=await createOnlineServer({dataDir:root,publicUrl:'https://example.com',adminToken:token,allowLanHttp:true,feishuFetch:async()=>{sent++;throw Error('must not send')}});
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ t.after(async()=>{server.closeAllConnections();await new Promise(r=>server.close(r));await rm(root,{recursive:true,force:true})});
+ const input={assetId:'sample-board',revision:'rev-0001',title:'实时看板',access:'jupyter',url:'https://example.com/static/dsh-live-server/sample-board.html',preview:true};
+ const call=(body,auth=true)=>fetch('http://127.0.0.1:'+server.address().port+'/api/feishu/send-live',{method:'POST',headers:{'content-type':'application/json',...(auth?{authorization:'Bearer '+token}:{})},body:JSON.stringify(body)});
+ assert.equal((await call(input,false)).status,401);
+ const response=await call(input);assert.equal(response.status,200);const result=await response.json();
+ assert.equal(result.preview,true);const text=JSON.stringify(result.card);
+ assert.match(text,/服务器版本/);assert.match(text,/Jupyter/);assert.doesNotMatch(text,/Invalid Date|只读快照/);
+ const lan={...input,access:'lan',url:'http://10.1.1.1:4340/s/'+'a'.repeat(48),expiresAt:'2099-01-01'};
+ const local=await (await call(lan)).json();assert.match(JSON.stringify(local.card),/电脑须保持在线/);
+ assert.equal((await call({...lan,expiresAt:'2020-01-01'})).status,400);
+ assert.equal((await call({...input,url:'javascript:alert(1)'})).status,400);
+ assert.equal(sent,0);
+});
+test('snapshot preview uses the actual card, requires active link, and never calls Feishu',async t=>{
+ const root=await mkdtemp(join(tmpdir(),'snapshot-preview-'));let sent=0;const token='x'.repeat(48);
+ const server=await createOnlineServer({dataDir:root,publicUrl:'https://example.com',adminToken:token,feishuFetch:async()=>{sent++;throw Error('must not send')}});
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ t.after(async()=>{server.closeAllConnections();await new Promise(r=>server.close(r));await rm(root,{recursive:true,force:true})});
+ const call=(path,method='POST',value={},auth=true)=>fetch('http://127.0.0.1:'+server.address().port+path,{method,headers:{'content-type':'application/json',...(auth?{authorization:'Bearer '+token}:{})},body:JSON.stringify(value)});
+ await call('/api/releases','POST',{assetId:'sample-board',revision:'rev-0001',title:'真实标题',html:'<h1>Board</h1>'});
+ const share=await(await call('/api/shares','POST',{assetId:'sample-board',revision:'rev-0001',days:7})).json();
+ const input={token:share.token,preview:true,note:'真实附言'};
+ assert.equal((await call('/api/feishu/send','POST',input,false)).status,401);
+ const result=await(await call('/api/feishu/send','POST',input)).json();assert.equal(result.preview,true);assert.match(JSON.stringify(result.card),/真实标题/);assert.match(JSON.stringify(result.card),/真实附言/);assert.ok(JSON.stringify(result.card).includes(share.url));
+ await call('/api/shares/'+share.token,'DELETE');assert.notEqual((await call('/api/feishu/send','POST',input)).status,200);assert.equal(sent,0);
+});

@@ -2,6 +2,9 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 import type { KnowledgeLibrary } from '../library/knowledge-library.js'
+import type { LiveService } from '../live-dashboard/service.js'
+import { shareBase } from '../live-dashboard/sharing.js'
+import { serverPublication } from '../live-dashboard/server-publications.js'
 
 const deployment = fileURLToPath(new URL('../../deploy/online/', import.meta.url))
 interface SharedLink { token: string; revision: string; url: string; expiresAt: string; status: string }
@@ -59,12 +62,37 @@ export async function revokeDashboardShare(id:string,token:unknown) {
   return request('/api/shares/'+token,'DELETE')
 }
 
-export async function dashboardFeishu(id:string,method:string,input:Record<string,unknown>) {
+export async function dashboardFeishu(id:string,method:string,input:Record<string,unknown>,context?:{library:KnowledgeLibrary;live?:LiveService}) {
   if(method==='GET') return request('/api/feishu/config')
   if(input.action==='search') return request('/api/feishu/users?q='+encodeURIComponent(String(input.query||'')))
   if(input.action==='configure') return request('/api/feishu/config','POST',{appId:input.appId,appSecret:input.appSecret})
-  if(input.action!=='send') throw new Error('PUBLISH_INVALID:操作无效')
+  if(!['send','preview'].includes(String(input.action))) throw new Error('PUBLISH_INVALID:操作无效')
+  if(context){
+    const asset=await context.library.getAsset(id)
+    const binding=context.live&&await context.live.find(id,asset.releasedRevision||asset.latestRevision)
+    if(binding&&context.live){
+      let target: {url:string;revision:string;access:string;expiresAt?:string}
+      if(input.delivery==='server'){
+        const publication=await serverPublication(context.library,id)
+        if(!publication)throw Error('PUBLISH_INVALID:当前版本尚未部署到服务器，请先部署后再分享')
+        if(input.url!==publication.url)throw Error('PUBLISH_INVALID:服务器分享链接已变更，请重新选择')
+        target=publication
+      }else{
+        if(typeof input.url!=='string')throw Error('PUBLISH_INVALID:请重新生成实时分享链接')
+        const url=new URL(input.url),base=new URL(shareBase())
+        if(url.origin!==base.origin||url.search||url.hash||url.username||url.password)throw Error('PUBLISH_INVALID:实时链接地址不匹配')
+        const token=/^\/s\/([a-f0-9]{48})$/.exec(url.pathname)?.[1]
+        if(!token)throw Error('PUBLISH_INVALID:实时链接无效')
+        const share=await context.live.authorize(token)
+        if(share.assetId!==id||share.id!==input.token||share.revision!==asset.releasedRevision)throw Error('PUBLISH_INVALID:实时链接不属于当前发布版本')
+        target={url:input.url,revision:share.revision,access:'lan',expiresAt:share.expiresAt}
+      }
+      return request('/api/feishu/send-live','POST',{...target,assetId:id,title:asset.displayName,note:input.note,receiveIdType:input.userId?'open_id':'email',receiveId:input.userId||input.email,requestId:input.requestId,preview:input.action==='preview'})
+    }
+  }
   const {shares}=await request('/api/shares?assetId='+encodeURIComponent(id))
-  if(!shares.some(s=>s.token===input.token&&s.status==='active')) throw new Error('PUBLISH_INVALID:链接不存在或已失效')
-  return request('/api/feishu/send','POST',{token:input.token,receiveIdType:input.userId?'open_id':'email',receiveId:input.userId||input.email,requestId:input.requestId,note:input.note})
+  const selected=shares.find(s=>s.token===input.token&&s.status==='active'&&Date.parse(s.expiresAt)>Date.now())
+  if(!selected) throw new Error('PUBLISH_INVALID:链接不存在或已失效')
+  if(context){const asset=await context.library.getAsset(id);if(selected.revision!==(asset.releasedRevision||asset.latestRevision))throw Error('PUBLISH_INVALID:分享链接不属于当前版本')}
+  return request('/api/feishu/send','POST',{token:input.token,receiveIdType:input.userId?'open_id':'email',receiveId:input.userId||input.email,requestId:input.requestId,note:input.note,preview:input.action==='preview'})
 }

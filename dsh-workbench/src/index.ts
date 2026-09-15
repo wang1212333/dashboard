@@ -1,3 +1,6 @@
+import { registerWorkbenchFailureGuard } from './workbench-failure-guard.js'
+import { LiveService } from './live-dashboard/service.js'
+import { startLiveShareServer } from './live-dashboard/sharing.js'
 import type { Context } from '@deepseek-ai/cordis'
 import { resolve } from 'node:path'
 import type {} from '@deepseek-ai/dsh-host-webserver'
@@ -31,12 +34,15 @@ function register(ctx: Context, config: WorkbenchPluginConfig, identity?: Identi
   const tracer = createWorkbenchTracer()
   const modelAnalyzer = new DshModelAnalyzer(ctx, tracer)
   const uploadRoot = config.libraryRoot ?? './dsh-workbench-library'
+  registerWorkbenchFailureGuard(ctx)
   const nativeSessions = new NativeWorkbenchSessions(uploadRoot)
   registerNativeTaskContext(ctx, nativeSessions, uploadRoot)
   const headlessAgents = new HeadlessDashboardAgentService(ctx, resolve(uploadRoot), nativeSessions)
-  registerWorkbenchTools(ctx, library, nativeSessions)
+  const live = new LiveService(resolve(uploadRoot), library)
+  registerWorkbenchTools(ctx, library, nativeSessions, live)
   ctx.effect(() => {
-    const disposers = makeWorkbenchWebRoutes(library, modelAnalyzer, uploadRoot, headlessAgents, nativeSessions).map(route => ctx.webServer.register(route))
-    return () => { disposers.forEach(dispose => dispose()); void modelAnalyzer.shutdownTracing() }
+    const sharingServer = startLiveShareServer(live)
+    const disposers = makeWorkbenchWebRoutes(library, modelAnalyzer, uploadRoot, headlessAgents, nativeSessions, live).map(route => ctx.webServer.register(route))
+    return () => { sharingServer.close(); disposers.forEach(dispose => dispose()); void modelAnalyzer.shutdownTracing() }
   }, 'dsh-workbench: same-origin web workbench routes')
 }

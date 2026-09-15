@@ -6,7 +6,7 @@
 - 输入数据的行数、字段数、调用状态、异常与端到端耗时；
 - 开启本地内容采集后，完整的模型提示词和原始模型输出。
 
-Span 名称为 `dsh-workbench.dashboard-model-analysis`，Phoenix 项目默认是 `dsh-workbench`。该追踪覆盖工作台的“分析数据 / 创建 Plan / 流式运行”模型调用；由 DSH 主会话自身执行的通用工具调用仍由 DSH 宿主负责，当前插件只能在界面中展示其用户可见的会话时间线。
+Span 名称为 `dsh-workbench.dashboard-model-analysis`，Phoenix 项目默认是 `dsh-workbench`。该追踪覆盖工作台的通过 `DshModelAnalyzer` 执行的数据分析与流式生成调用；由 DSH 主会话自身执行的通用工具调用仍由 DSH 宿主负责，当前插件只能在界面中展示其用户可见的会话时间线。
 
 ## 本地启用
 
@@ -25,13 +25,13 @@ PHOENIX_PROJECT=dsh-workbench
 DSH_TRACE_CAPTURE_CONTENT=true
 ```
 
-重启 DSH，执行一次“上传 CSV → 生成看板方案”。随后在 Phoenix 的 `dsh-workbench` 项目中打开最新 Trace，即可按下列层级查看：
+重启 DSH，触发一次通过 `DshModelAnalyzer` 执行的数据分析调用。随后在 Phoenix 的 `dsh-workbench` 项目中打开最新 Trace，即可按下列层级查看：
 
 ```text
 dsh-workbench.dashboard-model-analysis (LLM)
 ├─ 输入：字段画像、样例和规则建议（本地内容采集开启时）
 ├─ 模型：provider / model / temperature / max_tokens
-└─ 输出：模型返回的模板和字段映射建议
+└─ 输出：模型返回的分析结果（辅助信息，不构成生成前审批）
 ```
 
 若 Phoenix 开启鉴权，再额外配置 `PHOENIX_API_KEY`。可使用 Phoenix CLI 查看最近 Trace：

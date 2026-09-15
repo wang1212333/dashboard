@@ -1,6 +1,6 @@
 # PostgreSQL 权威存储层
 
-`migrations/001_core_persistence.sql` 是 DSH Workbench 的业务元数据 Schema。它保存 workspace、成员、会话、可见消息、状态机运行步骤、OMD 语义证据、Plan/Spec/Revision、审批和审计；CSV、HTML、截图和质量报告只保存对象存储地址、SHA-256、大小和 MIME 类型。
+`migrations/001_core_persistence.sql` 是 DSH Workbench 的业务元数据 Schema。它保存 workspace、成员、会话、可见消息、状态机运行步骤、OMD 语义证据、Revision 与历史兼容对象、审批和审计；CSV、HTML、截图和质量报告只保存对象存储地址、SHA-256、大小和 MIME 类型。
 
 ## 初始化
 
@@ -25,7 +25,7 @@
 浏览器 / DSH Agent
         │
         ▼
-元数据服务 ── PostgreSQL：会话、状态机、审批、审计、Plan、Spec、Revision
+元数据服务 ── PostgreSQL：会话、状态机、审批、审计、Revision 与历史兼容对象
         │
         └── MinIO / S3：CSV、HTML、Manifest、Model、质量报告
 ```
@@ -34,4 +34,6 @@
 
 ## 运行时接口
 
-服务端通过 `createPostgresCoreStore()` 读取 `DATABASE_URL`，得到 `PostgresCoreStore`。它提供创建 workspace/member/session/message/run/step、保存 SemanticContext、Plan/Spec/Revision、对象引用、审批、审计及上传元数据的方法。`createAuditedDashboardRevision` 会在一个 PostgreSQL 事务中同时创建 revision 和 audit event。
+服务端通过 `createPostgresCoreStore()` 读取 `DATABASE_URL`，得到 `PostgresCoreStore`。它提供创建 workspace/member/session/message/run/step、保存 SemanticContext、Revision 与历史兼容对象、对象引用、审批、审计及上传元数据的方法。`createAuditedDashboardRevision` 会在一个 PostgreSQL 事务中同时创建 revision 和 audit event。
+
+该文档描述存储接口，不定义用户搭建流程。历史兼容对象的存储能力不构成当前生成的前置步骤；当前流程见 [看板生成流程](dashboard-generation-workflow.md)。

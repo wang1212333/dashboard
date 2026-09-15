@@ -1,20 +1,24 @@
 # dsh-workbench
 
-一个面向 AI 工作台的 DeepSeek Harness 看板插件。默认让 DSH Agent 直接基于用户目标与 CSV 自由生成完整看板；旧的受控工作流保留为兼容模式。
+一个面向 AI 工作台的 DeepSeek Harness 看板插件。默认让 DSH Agent 直接基于用户目标与 CSV 自由生成完整看板。
 
 ## 默认：原生 DSH 自由生成
 
-网页工作台的默认链路不再要求业务模板 ID、字段映射、Plan、人工确认或 `DashboardSpec`：
+网页工作台使用以下生成与发布链路：
 
 ```text
 用户目标 + 完整 CSV
     → 当前 DSH 模型自主分析、设计并生成完整 HTML
-    → 保存为不可变 Revision → 返回可预览看板
+    → 保存私有草稿和不可变 Revision → 用户预览后明确发布
 ```
 
 未选择模板时，模型根据用户问题和原始数据自主设计。用户在资料库中明确选择模板后，生成请求会携带所选模板的设计规范；Lieflat 模板同时携带真实 HTML 骨架，然后保存完整 HTML。
 
-旧的 Plan / Confirm / Spec / 确定性模板实现不再向 DSH Agent 注册；它们仅作为历史代码和已有资产的兼容基础留在仓库与 Git 历史中。
+完整流程及当前工具入口见 [`docs/dashboard-generation-workflow.md`](docs/dashboard-generation-workflow.md)。
+
+## 实时看板最小闭环
+
+实时需求可通过原生对话发现授权表、核实字段、保存真实查询草稿，再使用现有预览、发布及分享入口。支持单表指标、趋势、排名和定时查询；详情、配置与范围见 [实时看板说明](docs/realtime-dashboard.md)。
 
 ## OpenMetadata 语义 MCP
 
@@ -61,11 +65,11 @@ pnpm dashboard:run -- fixtures/content-weekly.csv outputs/content-operations-das
 pnpm library:run -- build --library outputs/library --asset-id content-ops-weekly --input fixtures/content-weekly.csv --title "内容运营周看板"
 ```
 
-每次构建生成一个不可变 HTML revision；新 revision 不会覆盖旧 HTML。工作流不再包含 Preview、Release、发布审批或发布指针。
+每次构建生成一个不可变 HTML revision；新 revision 不会覆盖旧 HTML。网页工作台生成的是私有草稿，用户预览并明确发布后进入“我的看板”。
 
 ### 本地网页上传 CSV
 
-单机体验可启动本地导入页；选择 CSV 后会先分析字段、预览前五行、按规则推荐模板并由用户确认字段映射，随后直接生成并打开 HTML 看板。确认过的映射随 revision Manifest 一同保存，文件和生成结果只保存在本机资料库。
+DSH 用户从看板工作台上传 CSV 并描述需求，由原生会话生成草稿。下方独立本地导入页仅用于开发调试，不作为 DSH 用户的标准搭建步骤。文件和生成结果保存在配置的资料库中。
 
 ```bash
 pnpm build:dashboard
@@ -92,7 +96,7 @@ pnpm local:app -- --library outputs/local-app-library
 
 ### PostgreSQL 权威元数据
 
-P2 的权威业务状态现已提供 PostgreSQL Schema 与服务端仓储：会话、消息、状态机运行步骤、OMD 语义证据、Plan/Spec/Revision、对象引用、审批、审计和上传元数据不再依赖浏览器 `localStorage` 或进程内 `Map`。CSV、HTML 和报告仍应保存到 MinIO/S3；数据库只存对象地址、SHA-256、大小和 MIME 类型。部署、迁移和服务端使用方式见 [`docs/persistence.md`](docs/persistence.md)。
+P2 的权威业务状态现已提供 PostgreSQL Schema 与服务端仓储：会话、消息、状态机运行步骤、OMD 语义证据、Revision 与历史兼容对象、对象引用、审批、审计和上传元数据不再依赖浏览器 `localStorage` 或进程内 `Map`。CSV、HTML 和报告仍应保存到 MinIO/S3；数据库只存对象地址、SHA-256、大小和 MIME 类型。部署、迁移和服务端使用方式见 [`docs/persistence.md`](docs/persistence.md)。
 
 ## 本地开发
 

@@ -59,6 +59,7 @@ type WorkbenchMessage = {
   sourceMode?: unknown
   semanticAsset?: unknown
   profile?: unknown
+  sessionIds?: unknown
   sessionId?: unknown
   designTemplate?: unknown
   uploadId?: unknown
@@ -129,6 +130,17 @@ export function apply(ctx: ClientContext): void {
   const nativeSurface = installNativeConversationSurface(ctx)
   let nativeSessionId: string | undefined
   let nativeUnsubscribe: (() => void) | undefined
+  const historyWatchers = new Map<string, { driver: SessionDriver; dispose?: () => void; update: () => void }>()
+  const watchHistory = (sessionId: string): void => {
+    const driver = sessions.binding(sessionId)?.session
+    if (!driver) return
+    const previous = historyWatchers.get(sessionId)
+    if (previous?.driver === driver) { previous.update(); return }
+    previous?.dispose?.()
+    const update = (): void => { frame?.contentWindow?.postMessage({ source: 'dsh-workbench', kind: 'history-running-state', sessionId, running: Boolean(driver.getSnapshot?.().running) }, location.origin) }
+    historyWatchers.set(sessionId, { driver, update, dispose: driver.subscribe?.(update) })
+    update()
+  }
   let nativePanel: HTMLDivElement | undefined
   let nativeMount: ReturnType<typeof createNativeSurfacePanel> | undefined
   let nativeGeometryObserver: ResizeObserver | undefined
@@ -232,6 +244,7 @@ export function apply(ctx: ClientContext): void {
       if (sessions.list.getSnapshot().byId[sessionId]) { clearTimeout(timeout); dispose(); resolve() }
     })
     nativeSessionId = sessionId
+    watchHistory(sessionId)
     nativeUnsubscribe?.()
     const driver = sessions.binding(sessionId)?.session
     const update = (): void => {
@@ -266,6 +279,12 @@ export function apply(ctx: ClientContext): void {
       const url = new URL(location.href); url.searchParams.set('workbenchRoute', route.pathname + route.search)
       if (!route.searchParams.has('nativeSession')) url.searchParams.delete('nativeSession')
       history.replaceState(history.state, '', url)
+      return
+    }
+    if (message.kind === 'watch-history-running' && Array.isArray(message.sessionIds)) {
+      const ids = new Set(message.sessionIds.filter((id): id is string => typeof id === 'string'))
+      for (const [id, watcher] of historyWatchers) if (!ids.has(id)) { watcher.dispose?.(); historyWatchers.delete(id) }
+      for (const id of ids) watchHistory(id)
       return
     }
     if (message.kind === 'workbench-ready') {

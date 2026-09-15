@@ -6,7 +6,7 @@ import { AgentUploadStore } from './data-ingestion/agent-upload-store.js'
 
 export type NativeDraft = { assetId: string; revision: string; title: string }
 export type NativeTaskInput = { requestId: string; prompt: string; uploadId?: string; templateId?: string; templateInstructions?: string; templateSha?: string; semanticAsset?: unknown; messageId?: string; turn?: number }
-type NativeLink = { sessionId: string; uploadId?: string; uploadIds?: string[]; draft?: NativeDraft; inputs?: NativeTaskInput[] }
+type NativeLink = { sessionId: string; uploadId?: string; uploadIds?: string[]; draft?: NativeDraft; drafts?: NativeDraft[]; inputs?: NativeTaskInput[] }
 
 /** Attachment/delivery references only. DSH remains the owner of the session and turn state. */
 export class NativeWorkbenchSessions {
@@ -55,14 +55,21 @@ export class NativeWorkbenchSessions {
     return this.uploads.readCsv(selected)
   }
   async recordDraft(sessionId: string, draft: NativeDraft): Promise<void> {
-    await this.update(sessionId, link => link ? { ...link, draft } : undefined)
+    await this.update(sessionId, link => {
+      if (!link) return undefined
+      const drafts = [...(link.drafts ?? (link.draft ? [link.draft] : []))]
+      const index = drafts.findIndex(item => item.assetId === draft.assetId)
+      if (index < 0) drafts.push(draft)
+      else drafts[index] = draft
+      return { ...link, draft, drafts }
+    })
   }
   async draftSources(): Promise<Record<string, string>> {
     const sources: Record<string, string> = {}
     const files = await readdir(this.root).catch((error: NodeJS.ErrnoException) => { if (error.code === 'ENOENT') return []; throw error })
     for (const file of files.filter(file => /^(?:session-)?[a-f0-9-]+\.json$/i.test(file))) {
       const link = await this.read(file.slice(0, -5))
-      if (link?.draft) sources[link.draft.assetId] = link.sessionId
+      for (const draft of link?.drafts ?? (link?.draft ? [link.draft] : [])) sources[draft.assetId] = link!.sessionId
     }
     return sources
   }

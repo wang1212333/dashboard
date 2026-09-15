@@ -9,12 +9,13 @@ it('guides an unpreviewed draft to preview, then requires confirmation to releas
   const script = page.slice(start, page.indexOf('},true);', start) + 8)
   let handler: (event: unknown) => Promise<void>
   const draft = { assetId: 'test', revision: 'rev-0001', previewed: false, released: false }
-  const state = { sessionId: 's1', draftActionBusy: false, stream: { dashboardDraft: draft } }
+  const other = { assetId: 'other', revision: 'rev-0001', previewed: false, released: false }
+  const state = { sessionId: 's1', draftActionBusy: false, stream: { dashboardDraft: other, dashboardDrafts: [draft, other] } }
   const button = { disabled: false, isConnected: false, dataset: { releaseDraft: 'test', draftRevision: 'rev-0001' }, hasAttribute: () => true, setAttribute: vi.fn() }
   class Target { closest() { return button } }
   const fetch = vi.fn(async () => ({ ok: true, json: async () => ({ previewUrl: '/preview' }) }))
   const confirm = vi.fn(() => false)
-  runInNewContext(script, { document: { addEventListener: (_: string, fn: typeof handler) => { handler = fn } }, Element: Target, state, fetch, confirm, dashboardAgentApi: () => '/api', AbortSignal, historyToast: vi.fn(), refreshStream: vi.fn(), window: { open: () => ({ opener: {}, location: { assign: vi.fn() } }) } })
+  runInNewContext(script, { document: { addEventListener: (_: string, fn: typeof handler) => { handler = fn } }, Element: Target, state, fetch, confirm, dashboardAgentApi: () => '/api', AbortSignal, historyToast: vi.fn(), refreshStream: vi.fn(), window: { open: () => ({ close:vi.fn(), opener: {}, location: { assign: vi.fn() } }) } })
   const event = { target: new Target(), preventDefault: vi.fn(), stopImmediatePropagation: vi.fn() }
   await handler!(event)
   expect(fetch.mock.calls[0][0]).toBe('/api/dashboard-drafts/test/rev-0001/preview')
@@ -29,4 +30,22 @@ it('guides an unpreviewed draft to preview, then requires confirmation to releas
   await handler!(event)
   expect(fetch.mock.calls[1][0]).toBe('/api/dashboard-drafts/test/rev-0001/release')
   expect(draft.released).toBe(true)
+  expect(other.previewed).toBe(false)
+  expect(other.released).toBe(false)
+})
+
+it('waits for server confirmation and keeps a failed deployment retryable',async()=>{
+ const page=renderLocalWorkbenchPage(),start=page.indexOf("document.addEventListener('click',async event=>{\n    const button=");
+ const script=page.slice(start,page.indexOf('},true);',start)+8);let handler:any;
+ const draft:any={assetId:'test',revision:'rev-0001',previewed:true,released:false};
+ const state:any={sessionId:'s1',draftActionBusy:false,stream:{dashboardDraft:draft}};
+ const button={disabled:false,isConnected:false,dataset:{releaseDraft:'test',draftRevision:'rev-0001'},hasAttribute:()=>true,setAttribute:vi.fn()};class Target{closest(){return button}}
+ const prepared={publishUrl:'https://example.com/publish.html',nonce:'nonce'};
+ const deploy=vi.fn().mockRejectedValueOnce(Error('服务器查询失败')).mockResolvedValueOnce({url:'https://example.com/board'});
+ const popup={close:vi.fn(),location:{assign:vi.fn()}};
+ runInNewContext(script,{Error,document:{addEventListener:(_:string,fn:any)=>handler=fn},Element:Target,state,fetch:async()=>({ok:true,json:async()=>({serverDeployment:prepared})}),confirm:()=>true,dashboardAgentApi:()=>'/api',AbortSignal,historyToast:vi.fn(),refreshStream:vi.fn(),window:{open:()=>popup,dshDeployReleased:deploy}});
+ const event={target:new Target(),preventDefault:vi.fn(),stopImmediatePropagation:vi.fn()};
+ await handler(event);expect(draft.released).toBe(false);expect(state.stream.error).toBe('服务器查询失败');expect(state.draftActionBusy).toBe(false);
+ button.disabled=false;await handler(event);expect(draft.released).toBe(true);expect(draft.serverUrl).toBe('https://example.com/board');expect(state.stream.error).toBeUndefined();
+ expect(deploy.mock.calls[0][0]).toEqual({assetId:'test',publishUrl:prepared.publishUrl,prepared,popup});
 })

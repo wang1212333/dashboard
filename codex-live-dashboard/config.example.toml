@@ -1,0 +1,8 @@
+# Merge these sections into your existing ~/.codex/config.toml.
+# Replace placeholders locally; do not publish real credentials.
+[mcp_servers.data-gateway]
+url = "https://YOUR_GATEWAY_HOST/YOUR_MCP_PATH"
+enabled = true
+
+[mcp_servers.data-gateway.http_headers]
+Authorization = "Bearer YOUR_ACCESS_TOKEN"

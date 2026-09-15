@@ -11,6 +11,17 @@ import { conversationSnapshot } from '../src/local-app/conversation-share.js'
 import { renderLocalWorkbenchPage } from '../src/local-app/page.js'
 
 const roots: string[] = []
+it('retains all session drafts and updates a revision without duplicating its card', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'multi-drafts-')); roots.push(root)
+  const sessions = new NativeWorkbenchSessions(root)
+  const id = 'session-11111111-1111-1111-1111-111111111111'
+  await sessions.bind(id)
+  await sessions.recordDraft(id, { assetId: 'first-board', revision: 'rev-0001', title: 'First' })
+  await sessions.recordDraft(id, { assetId: 'second-board', revision: 'rev-0001', title: 'Second' })
+  await sessions.recordDraft(id, { assetId: 'first-board', revision: 'rev-0002', title: 'First updated' })
+  expect((await sessions.read(id))?.drafts?.map(d => [d.assetId, d.revision])).toEqual([['first-board', 'rev-0002'], ['second-board', 'rev-0001']])
+  expect(await sessions.draftSources()).toEqual({ 'first-board': id, 'second-board': id })
+})
 it('preserves history order through native restore, status snapshot and delivery hydration', async () => {
   const page = renderLocalWorkbenchPage()
   const fn = (name: string, next: string) => page.slice(page.indexOf('function '+name+'('), page.indexOf(next, page.indexOf('function '+name+'(')))
